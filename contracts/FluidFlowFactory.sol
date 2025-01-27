@@ -15,10 +15,9 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     mapping(address => bool) public isFund;
     address[] public allFunds;
 
-    // Superfluid addresses
-    address public immutable host;
-    address public immutable cfa;
-    address public immutable usdcx;
+    address public host;
+    address public cfa;
+    address public usdcx;
 
     constructor(
         address _host,
@@ -49,17 +48,7 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         require(profitSharingPercentage <= 5000, "Profit share cannot exceed 50%");
         require(subscriptionEndTime > block.timestamp, "Invalid subscription end time");
 
-        FluidFlow newFund = new FluidFlow(
-            name,
-            msg.sender,
-            profitSharingPercentage,
-            subscriptionEndTime,
-            minInvestmentAmount,
-            address(this),
-            host,
-            cfa,
-            usdcx
-        );
+        FluidFlow newFund = new FluidFlow();
 
         address fundAddress = address(newFund);
         isFund[fundAddress] = true;
@@ -105,11 +94,5 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         return whitelistedTokens[token];
     }
 
-    /**
-     * @notice Get all funds created through this factory
-     */
-    function getAllFunds() external view returns (address[] memory) {
-        return allFunds;
-    }
 }
 
