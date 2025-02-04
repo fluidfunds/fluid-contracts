@@ -43,7 +43,8 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         string memory name,
         uint256 profitSharingPercentage,
         uint256 subscriptionEndTime,
-        uint256 minInvestmentAmount
+        uint256 minInvestmentAmount,
+        uint256 fundDuration
     ) external nonReentrant returns (address) {
         require(profitSharingPercentage <= 5000, "Profit share cannot exceed 50%");
         require(subscriptionEndTime > block.timestamp, "Invalid subscription end time");
@@ -53,7 +54,6 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
             msg.sender, // fund manager
             fundDuration,
             subscriptionDuration,
-            fundToken,
             address(this) // pass factory address
         );
 

@@ -61,7 +61,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         address _fundManager,
         uint256 _fundDuration,
         uint256 _subscriptionDuration,
-        ISuperToken _fundToken,
         address _factory
     ) CFASuperAppBase(
             ISuperfluid(ISuperToken(_acceptedToken).getHost())
@@ -70,12 +69,12 @@ contract SuperFluidFlow is CFASuperAppBase {
         owner = msg.sender;
         acceptedToken = _acceptedToken;
         fundManager = _fundManager;
-        fundToken = _fundToken;
         
-        // Set the timestamps
         fundEndTime = block.timestamp + _fundDuration;
         subscriptionDeadline = block.timestamp + _subscriptionDuration;
         factory = _factory;
+
+        fundToken = SuperToken()
     }
 
     // Add time validation modifier
