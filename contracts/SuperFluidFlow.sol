@@ -227,9 +227,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         Position storage position = positions[positionId];
         require(position.isOpen, "Position already closed");
         
-        // Transfer tokens back
-        IERC20(position.tokenOut).transfer(fundManager, position.amountOut);
-        position.isOpen = false;
     }
 
 }
