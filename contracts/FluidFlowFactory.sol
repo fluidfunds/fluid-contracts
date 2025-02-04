@@ -48,7 +48,14 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         require(profitSharingPercentage <= 5000, "Profit share cannot exceed 50%");
         require(subscriptionEndTime > block.timestamp, "Invalid subscription end time");
 
-        FluidFlow newFund = new FluidFlow();
+        FluidFlow newFund = new FluidFlow(
+            acceptedToken,
+            msg.sender, // fund manager
+            fundDuration,
+            subscriptionDuration,
+            fundToken,
+            address(this) // pass factory address
+        );
 
         address fundAddress = address(newFund);
         isFund[fundAddress] = true;

@@ -6,10 +6,11 @@ import {ISuperfluidPool} from "@superfluid-finance/ethereum-contracts/contracts/
 import {SuperTokenV1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
 import {CFASuperAppBase} from "@superfluid-finance/ethereum-contracts/contracts/apps/CFASuperAppBase.sol";
 import {IGeneralDistributionAgreementV1, ISuperfluidPool, PoolConfig} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/gdav1/IGeneralDistributionAgreementV1.sol";
+import "@uniswap/v4-core/contracts/interfaces/ISwapRouter.sol";
 
 contract SuperFluidFlow is CFASuperAppBase {
     using SuperTokenV1Library for ISuperToken;
-    
+ 
     address public owner;
     ISuperToken acceptedToken;
     address public fundManager;
@@ -22,9 +23,36 @@ contract SuperFluidFlow is CFASuperAppBase {
     uint256 public fundEndTime;
     uint256 public subscriptionDeadline;
 
+    address public constant UNISWAP_V4_ROUTER = 0x...; // Update with actual address
+    uint8 public constant MAX_POSITIONS = 10;
+
+    address public factory; // Add factory reference
+
+    struct Position {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 timestamp;
+        bool isOpen;
+    }
+
+    Position[] public positions;
+
     /// @notice Restricts function access to contract owner
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    modifier onlyFundManager() {
+        require(msg.sender == fundManager ,"Only fund manager can call this funciton");
+        _;
+    }
+
+    modifier onlyWhitelisted(address tokenIn, address tokenOut) {
+        require(FluidFlowFactory(factory).isTokenWhitelisted(tokenIn), "TokenIn not whitelisted");
+        require(FluidFlowFactory(factory).isTokenWhitelisted(tokenOut), "TokenOut not whitelisted");
         _;
     }
 
@@ -33,7 +61,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         address _fundManager,
         uint256 _fundDuration,
         uint256 _subscriptionDuration,
-        ISuperToken _fundToken
+        ISuperToken _fundToken,
+        address _factory
     ) CFASuperAppBase(
             ISuperfluid(ISuperToken(_acceptedToken).getHost())
         ) {
@@ -46,6 +75,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         // Set the timestamps
         fundEndTime = block.timestamp + _fundDuration;
         subscriptionDeadline = block.timestamp + _subscriptionDuration;
+        factory = _factory;
     }
 
     // Add time validation modifier
@@ -155,5 +185,56 @@ contract SuperFluidFlow is CFASuperAppBase {
         return ctx;
     }
 
+    // Trading function
+    function executeTrade(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint24 poolFee
+    ) external onlyFundManager onlyWhitelisted(tokenIn, tokenOut) {
+        require(positions.length < MAX_POSITIONS, "Max positions reached");
+        require(block.timestamp <= fundEndTime, "Trading period ended");
+        
+        // Transfer tokens to contract
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        
+        // Approve and execute swap
+        IERC20(tokenIn).approve(UNISWAP_V4_ROUTER, amountIn);
+        
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: poolFee,
+            recipient: address(this),
+            deadline: block.timestamp + 15 minutes,
+            amountIn: amountIn,
+            amountOutMinimum: minAmountOut,
+            sqrtPriceLimitX96: 0
+        });
+
+        uint256 amountOut = ISwapRouter(UNISWAP_V4_ROUTER).exactInputSingle(params);
+        
+        // Record position
+        positions.push(Position({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: amountIn,
+            amountOut: amountOut,
+            timestamp: block.timestamp,
+            isOpen: true
+        }));
+    }
+
+    // Function to close position
+    function closePosition(uint256 positionId) external onlyFundManager {
+        require(positionId < positions.length, "Invalid position ID");
+        Position storage position = positions[positionId];
+        require(position.isOpen, "Position already closed");
+        
+        // Transfer tokens back
+        IERC20(position.tokenOut).transfer(fundManager, position.amountOut);
+        position.isOpen = false;
+    }
 
 }

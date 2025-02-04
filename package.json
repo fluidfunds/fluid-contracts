@@ -25,7 +25,9 @@
     "@openzeppelin/contracts": "^4.9.3",
     "@superfluid-finance/ethereum-contracts": "^1.8.1",
     "@superfluid-finance/sdk-core": "^0.9.0",
+    "@uniswap/sdk-core": "^7.5.0",
     "@uniswap/v3-periphery": "^1.4.4",
+    "@uniswap/v4-sdk": "^1.18.1",
     "ethers": "^6.13.5"
   }
 }
