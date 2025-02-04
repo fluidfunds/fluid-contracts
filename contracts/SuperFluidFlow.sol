@@ -23,10 +23,10 @@ contract SuperFluidFlow is CFASuperAppBase {
     uint256 public fundEndTime;
     uint256 public subscriptionDeadline;
 
-    address public constant UNISWAP_V4_ROUTER = 0x...; // Update with actual address
+    address public constant UNISWAP_V4_ROUTER = 0x...;
     uint8 public constant MAX_POSITIONS = 10;
 
-    address public factory; // Add factory reference
+    address public factory;
 
     struct Position {
         address tokenIn;
@@ -125,10 +125,10 @@ contract SuperFluidFlow is CFASuperAppBase {
         int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         // Start fund token stream to the sender
-        fundToken.createFlow(sender, senderFlowRate);
+        newCtx = fundToken.createFlow(sender, senderFlowRate);
         
 
-        return ctx;
+        return newCtx;
     }
 
     /*
@@ -154,7 +154,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         int96 currentFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         // Update fund token stream to the sender
-        fundToken.updateFlow(sender, currentFlowRate);
+        newCtx = fundToken.updateFlow(sender, currentFlowRate, ctx);
                 
         return ctx;
     }
@@ -180,9 +180,9 @@ contract SuperFluidFlow is CFASuperAppBase {
         totalStreamed += uint256(uint96(previousFlowRate)) * timeElapsed;
 
         // Delete fund token stream to the sender
-        fundToken.deleteFlow(address(this), sender);
+        newctx = fundToken.deleteFlow(address(this), sender, ctx);
 
-        return ctx;
+        return newctx;
     }
 
     // Trading function
@@ -196,10 +196,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         require(positions.length < MAX_POSITIONS, "Max positions reached");
         require(block.timestamp <= fundEndTime, "Trading period ended");
         
-        // Transfer tokens to contract
         IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
-        
-        // Approve and execute swap
         IERC20(tokenIn).approve(UNISWAP_V4_ROUTER, amountIn);
         
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
@@ -215,7 +212,6 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         uint256 amountOut = ISwapRouter(UNISWAP_V4_ROUTER).exactInputSingle(params);
         
-        // Record position
         positions.push(Position({
             tokenIn: tokenIn,
             tokenOut: tokenOut,
