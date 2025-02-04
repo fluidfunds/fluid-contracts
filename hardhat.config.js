@@ -7,6 +7,9 @@ const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY;
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.28",
+  sourcify: {
+    enabled: true
+  },
   networks: {
     baseSepolia: {
       url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
