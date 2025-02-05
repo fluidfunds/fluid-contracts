@@ -21,8 +21,9 @@ contract SuperFluidFlow is CFASuperAppBase {
     address public fundManager;
     ISuperToken public fundToken;
 
-    // Add stream tracking variable
     uint256 public totalStreamed;
+
+    bool public isFundActive;
 
     // Timestamp variables
     uint256 public fundEndTime;
@@ -67,6 +68,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     event TradeExecuted(uint256 positionId, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
     event UserLiquidated(address indexed user, uint256 tokenBalance, uint256 amountTaken);
     event PositionClosed(uint256 positionId);
+    event FundClosed();
 
     constructor(
         ISuperToken _acceptedToken, 
@@ -87,6 +89,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         fundEndTime = block.timestamp + _fundDuration;
         subscriptionDeadline = block.timestamp + _subscriptionDuration;
         factory = _factory;
+    
+        isFundActive = true;
 
         // Deploy new PureSuperTokenProxy
         PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
@@ -225,6 +229,8 @@ contract SuperFluidFlow is CFASuperAppBase {
     ) external onlyFundManager onlyWhitelisted(tokenIn, tokenOut) {
         require(positions.length < MAX_POSITIONS, "Max positions reached");
         require(block.timestamp <= fundEndTime, "Trading period ended");
+
+        // TODO: Downgrade from supepr usdc to usdc
         
         // Approve the router to spend tokenIn
         TransferHelper.safeApprove(tokenIn, UNISWAP_V3_ROUTER, amountIn);
@@ -258,11 +264,35 @@ contract SuperFluidFlow is CFASuperAppBase {
     // Function to close a position
     function closePosition(uint256 positionId) external onlyFundManager {
         require(positionId < positions.length, "Invalid position ID");
+
+        // TODO: execute trade with uniswap from token -> usdc
+
         Position storage position = positions[positionId];
         require(position.isOpen, "Position already closed");
         
         // Implement logic to close the trade/position if needed.
         position.isOpen = false;
         emit PositionClosed(positionId);
+    }
+
+    function closeFund() external onlyFundManager {
+        require(isFundActive, "Fund is not active");
+        
+        for (uint256 i = 0; i < positions.length; i++) {
+            if (positions[i].isOpen) {
+                require(false, "All positions should be closed");
+            }
+        }
+        
+        isFundActive = false;
+
+
+        // TODO: calculate the amount of usdc in the contract and let fund manager take the profit sharing.
+
+        if (totalStreamed < acceptedToken.balanceOf(address(this))) {
+            // Send the % back to fund manager
+        }
+
+        emit FundClosed();
     }
 }
