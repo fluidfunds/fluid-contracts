@@ -3,7 +3,8 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./FluidFlow.sol";
+import "./SuperFluidFlow.sol";
+import { ISuperToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperToken.sol";
 
 contract FluidFlowFactory is Ownable, ReentrancyGuard {
     // Events
@@ -14,47 +15,46 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     mapping(address => bool) public whitelistedTokens;
     mapping(address => bool) public isFund;
     address[] public allFunds;
+    ISuperToken public immutable acceptedToken;
 
-    address public host;
-    address public cfa;
-    address public usdcx;
-
-    constructor(
-        address _host,
-        address _cfa,
-        address _usdcx
-    )  {
-        require(_host != address(0), "Invalid host address");
-        require(_cfa != address(0), "Invalid CFA address");
-        require(_usdcx != address(0), "Invalid USDCx address");
-        host = _host;
-        cfa = _cfa;
-        usdcx = _usdcx;
+    constructor(ISuperToken _acceptedToken) {
+        require(address(_acceptedToken) != address(0), "Invalid token address");
+        acceptedToken = _acceptedToken;
     }
 
     /**
-     * @notice Creates a new fund
-     * @param name Name of the fund
-     * @param profitSharingPercentage Percentage of profits that goes to fund manager (in basis points, e.g. 2000 = 20%)
-     * @param subscriptionEndTime Timestamp after which no new subscriptions are allowed
-     * @param minInvestmentAmount Minimum amount required to invest in the fund
+     * @notice Creates a new fund.
+     * @param name Name of the fund.
+     * @param profitSharingPercentage Percentage of profits that goes to fund manager (in basis points).
+     * @param subscriptionEndTime Timestamp after which no new subscriptions are allowed.
+     * @param minInvestmentAmount Minimum amount required to invest in the fund.
+     * @param fundDuration Duration of the fund in seconds.
+     * @param subscriptionDuration Duration of the subscription period in seconds.
      */
     function createFund(
         string memory name,
         uint256 profitSharingPercentage,
         uint256 subscriptionEndTime,
         uint256 minInvestmentAmount,
-        uint256 fundDuration
+        uint256 fundDuration,
+        uint256 subscriptionDuration
     ) external nonReentrant returns (address) {
         require(profitSharingPercentage <= 5000, "Profit share cannot exceed 50%");
         require(subscriptionEndTime > block.timestamp, "Invalid subscription end time");
+        require(fundDuration > subscriptionDuration, "Fund duration must exceed subscription duration");
 
-        FluidFlow newFund = new FluidFlow(
+        // Create fund token name and symbol
+        string memory fundTokenName = string(abi.encodePacked("FluidFund ", name, " Token"));
+        string memory fundTokenSymbol = string(abi.encodePacked("FF", name));
+
+        SuperFluidFlow newFund = new SuperFluidFlow(
             acceptedToken,
             msg.sender, // fund manager
             fundDuration,
             subscriptionDuration,
-            address(this) // pass factory address
+            address(this), // factory address
+            fundTokenName,
+            fundTokenSymbol
         );
 
         address fundAddress = address(newFund);
@@ -66,9 +66,9 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Whitelist or de-whitelist a token for trading
-     * @param token Token address to whitelist
-     * @param status True to whitelist, false to de-whitelist
+     * @notice Whitelist or de-whitelist a token for trading.
+     * @param token Token address to whitelist.
+     * @param status True to whitelist, false to de-whitelist.
      */
     function setTokenWhitelisted(address token, bool status) external onlyOwner {
         require(token != address(0), "Invalid token address");
@@ -77,9 +77,9 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Batch whitelist or de-whitelist tokens
-     * @param tokens Array of token addresses
-     * @param statuses Array of whitelist statuses
+     * @notice Batch whitelist or de-whitelist tokens.
+     * @param tokens Array of token addresses.
+     * @param statuses Array of whitelist statuses.
      */
     function batchSetTokenWhitelisted(
         address[] calldata tokens,
@@ -94,12 +94,11 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Check if a token is whitelisted
-     * @param token Token address to check
+     * @notice Check if a token is whitelisted.
+     * @param token Token address to check.
      */
     function isTokenWhitelisted(address token) external view returns (bool) {
         return whitelistedTokens[token];
     }
-
 }
 

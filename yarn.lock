@@ -1353,7 +1353,7 @@
     "@uniswap/v3-core" "^1.0.0"
     base64-sol "1.0.1"
 
-"@uniswap/v3-sdk@3.24.0":
+"@uniswap/v3-sdk@3.24.0", "@uniswap/v3-sdk@^3.24.0":
   version "3.24.0"
   resolved "https://registry.yarnpkg.com/@uniswap/v3-sdk/-/v3-sdk-3.24.0.tgz#5391d049fbc772283820b29ee8dd488b80359271"
   integrity sha512-RUo+JktfQwDyZX8M19GX7i6kMSCi+8zVMB+P0J+KZngwuY6eOBhvwIQWOkAFm553qXypSmrfzKu3177qLL3oTw==
