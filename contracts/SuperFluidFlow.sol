@@ -81,11 +81,12 @@ contract SuperFluidFlow is CFASuperAppBase {
     ) CFASuperAppBase(
             ISuperfluid(ISuperToken(_acceptedToken).getHost())
         ) {
-        require(_fundDuration > _subscriptionDuration, "Fund duration must be longer than subscription period");
+        require(_fundDuration > _subscriptionDuration, "Fund duration must be longer than subscription period"); // sub duration
         owner = msg.sender;
         acceptedToken = _acceptedToken;
         fundManager = _fundManager;
         
+        // TODO: pass the endtime instead of calculating
         fundEndTime = block.timestamp + _fundDuration;
         subscriptionDeadline = block.timestamp + _subscriptionDuration;
         factory = _factory;
@@ -139,6 +140,11 @@ contract SuperFluidFlow is CFASuperAppBase {
         // TODO: Think of a way to give the positions back to the user if the user is liquidating before the end date.
     }
 
+    // TODO: only for test, change afterwards
+    function changeAcceptedSuperToken(ISuperToken _token) public {
+        acceptedToken = _token;
+    }
+
     // ---------------------------------------------------------------------------------------------
     // SUPER APP CALLBACKS
     // ---------------------------------------------------------------------------------------------
@@ -155,15 +161,14 @@ contract SuperFluidFlow is CFASuperAppBase {
         address sender,
         bytes calldata ctx
     ) internal override returns (bytes memory newCtx) {
+        // TODO: remove require -> send back stream
         require(block.timestamp <= subscriptionDeadline, "Subscription period has ended");
 
         int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         // Start fund token stream to the sender
-        fundToken.createFlow(sender, senderFlowRate);
+        newCtx = fundToken.createFlowWithCtx(sender, senderFlowRate, ctx); 
         // No flow event emitted per your request
-        
-        return ctx;
     }
 
     /*
@@ -188,10 +193,9 @@ contract SuperFluidFlow is CFASuperAppBase {
         int96 currentFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         // Update fund token stream to the sender
-        fundToken.updateFlow(sender, currentFlowRate, ctx);
+        newCtx = fundToken.updateFlowWithCtx(sender, currentFlowRate, ctx);
         // No flow event emitted per your request
                 
-        return ctx;
     }
 
     /*
@@ -213,10 +217,9 @@ contract SuperFluidFlow is CFASuperAppBase {
         totalStreamed += uint256(uint96(previousFlowRate)) * timeElapsed;
 
         // Delete fund token stream to the sender
-        fundToken.deleteFlow(address(this), sender, ctx);
+        newCtx = fundToken.deleteFlowWithCtx(address(this), sender, ctx);
         // No flow event emitted per your request
 
-        return ctx;
     }
 
     // Trading function
@@ -261,6 +264,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         emit TradeExecuted(newPositionId, tokenIn, tokenOut, amountIn, amountOut);
     }
 
+    // TODO: Adjest position for partial closes
+
     // Function to close a position
     function closePosition(uint256 positionId) external onlyFundManager {
         require(positionId < positions.length, "Invalid position ID");
@@ -283,11 +288,16 @@ contract SuperFluidFlow is CFASuperAppBase {
                 require(false, "All positions should be closed");
             }
         }
+
+        // TODO: check the amount of usdc available in contract
         
         isFundActive = false;
 
 
         // TODO: calculate the amount of usdc in the contract and let fund manager take the profit sharing.
+        // 100 usdc
+        // 110 usdc -> profit
+        // 10 -> 1 -> fund manager
 
         if (totalStreamed < acceptedToken.balanceOf(address(this))) {
             // Send the % back to fund manager
@@ -295,4 +305,8 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         emit FundClosed();
     }
+
+    // funciton claimLiquidation() {
+    //     // fundToken 
+    // }
 }
