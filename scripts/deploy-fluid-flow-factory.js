@@ -14,9 +14,12 @@ async function main() {
   const fluidFlowFactory = await FluidFlowFactory.deploy(USDCX_ADDRESS);
 
   // Wait for deployment to finish
-  await fluidFlowFactory.deployed();
+  await fluidFlowFactory.waitForDeployment();
 
-  console.log("FluidFlowFactory deployed to:", fluidFlowFactory.address);
+  // Get the deployed contract address
+  const deployedAddress = await fluidFlowFactory.getAddress();
+  
+  console.log("FluidFlowFactory deployed to:", deployedAddress);
 
   // Verify contract on Etherscan (if not on local network)
   if (network.name !== "hardhat" && network.name !== "localhost") {
@@ -25,7 +28,7 @@ async function main() {
 
     console.log("Verifying contract...");
     await hre.run("verify:verify", {
-      address: fluidFlowFactory.address,
+      address: deployedAddress,
       constructorArguments: [USDCX_ADDRESS],
     });
   }

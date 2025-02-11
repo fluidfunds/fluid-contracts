@@ -11,6 +11,14 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     event FundCreated(address indexed fundAddress, address indexed manager, string name);
     event TokenWhitelisted(address indexed token, bool status);
 
+    // Custom errors
+    error InvalidAcceptedToken();
+    error ProfitSharingPercentageTooHigh();
+    error InvalidSubscriptionEndTime();
+    error FundDurationTooShort();
+    error InvalidToken();
+    error ArrayLengthMismatch();
+
     // State variables
     mapping(address => bool) public whitelistedTokens;
     mapping(address => bool) public isFund;
@@ -18,13 +26,8 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     ISuperToken public acceptedToken; // make it immutable
 
     constructor(ISuperToken _acceptedToken) {
-        require(address(_acceptedToken) != address(0), "Invalid token address");
+        if (address(_acceptedToken) == address(0)) revert InvalidAcceptedToken();
         acceptedToken = _acceptedToken;
-    }
-
-    // TODO: remove after testing
-    function changeAcceptedToken(ISuperToken _token) public {
-        acceptedToken = _token;
     }
 
     /**
@@ -40,15 +43,15 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         uint256 subscriptionEndTime,
         uint256 fundDuration
     ) external nonReentrant returns (address) {
-        require(profitSharingPercentage <= 5000, "Profit share cannot exceed 50%");
-        require(subscriptionEndTime > block.timestamp, "Invalid subscription end time");
-        
-        // TODO: if using sub endtime use fundEndTime and vise versa
+        if (profitSharingPercentage > 5000) revert ProfitSharingPercentageTooHigh();
+        if (subscriptionEndTime <= block.timestamp) revert InvalidSubscriptionEndTime();
+
+        // Calculate subscription duration
         uint256 subscriptionDuration = subscriptionEndTime - block.timestamp;
-        require(fundDuration > subscriptionDuration, "Fund duration must exceed subscription duration");
+        if (fundDuration <= subscriptionDuration) revert FundDurationTooShort();
 
         // Create fund token name and symbol
-        string memory fundTokenName = string(abi.encodePacked("FluidFund ", name, " Token"));
+        string memory fundTokenName = string(abi.encodePacked("FluidFund"));
         string memory fundTokenSymbol = string(abi.encodePacked("FF", name));
 
         SuperFluidFlow newFund = new SuperFluidFlow(
@@ -75,7 +78,7 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
      * @param status True to whitelist, false to de-whitelist.
      */
     function setTokenWhitelisted(address token, bool status) external onlyOwner {
-        require(token != address(0), "Invalid token address");
+        if (token == address(0)) revert InvalidToken();
         whitelistedTokens[token] = status;
         emit TokenWhitelisted(token, status);
     }
@@ -85,17 +88,17 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
      * @param tokens Array of token addresses.
      * @param statuses Array of whitelist statuses.
      */
-    function batchSetTokenWhitelisted(
-        address[] calldata tokens,
-        bool[] calldata statuses
-    ) external onlyOwner {
-        require(tokens.length == statuses.length, "Array lengths must match");
-        for (uint i = 0; i < tokens.length; i++) {
-            require(tokens[i] != address(0), "Invalid token address");
-            whitelistedTokens[tokens[i]] = statuses[i];
-            emit TokenWhitelisted(tokens[i], statuses[i]);
-        }
-    }
+    // function batchSetTokenWhitelisted(
+    //     address[] calldata tokens,
+    //     bool[] calldata statuses
+    // ) external onlyOwner {
+    //     if (tokens.length != statuses.length) revert ArrayLengthMismatch();
+    //     for (uint i = 0; i < tokens.length; i++) {
+    //         if (tokens[i] == address(0)) revert InvalidToken();
+    //         whitelistedTokens[tokens[i]] = statuses[i];
+    //         emit TokenWhitelisted(tokens[i], statuses[i]);
+    //     }
+    // }
 
     /**
      * @notice Check if a token is whitelisted.

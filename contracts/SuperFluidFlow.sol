@@ -1,20 +1,34 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+
 import {ISuperfluid, ISuperToken, ISuperApp, SuperAppDefinitions} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {ISuperfluidPool} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/gdav1/ISuperfluidPool.sol";
 import {SuperTokenV1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
 import {CFASuperAppBase} from "@superfluid-finance/ethereum-contracts/contracts/apps/CFASuperAppBase.sol";
 import {IGeneralDistributionAgreementV1, ISuperfluidPool, PoolConfig} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/gdav1/IGeneralDistributionAgreementV1.sol";
-import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
-import '@uniswap/v3-periphery/contracts/interfaces/IPeripheryPayments.sol';
-import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+
 import "./PureSuperToken.sol";
 import {ISuperTokenFactory} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {IFluidFlowFactory} from "./IFluidFlowFactory.sol";
+import "./TradeExecutor.sol";
 
 contract SuperFluidFlow is CFASuperAppBase {
     using SuperTokenV1Library for ISuperToken;
+
+    // Custom Errors
+    error OnlyOwner();
+    error OnlyFundManager();
+    error TokenInNotWhitelisted(address tokenIn);
+    error TokenOutNotWhitelisted(address tokenOut);
+    error FundDurationTooShort();
+    error SubscriptionPeriodEnded();
+    error MaxPositionsReached();
+    error TradingPeriodEnded();
+    error InvalidPositionId();
+    error PositionAlreadyClosed();
+    error FundNotActive();
+    error OpenPositionsExist();
  
     address public owner;
     ISuperToken acceptedToken;
@@ -33,42 +47,49 @@ contract SuperFluidFlow is CFASuperAppBase {
     uint8 public constant MAX_POSITIONS = 10;
 
     address public factory;
+    address public tradeExecutor;
 
-    struct Position {
-        address tokenIn;
-        address tokenOut;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 timestamp;
-        bool isOpen;
-    }
-
-    Position[] public positions;
+    // Update event to include all relevant trade data
+    event TradeExecuted(
+        address indexed tokenIn, 
+        address indexed tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 timestamp,
+        bool isOpen
+    );
 
     /// @notice Restricts function access to the contract owner.
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this function");
+        if (msg.sender != owner) revert OnlyOwner();
         _;
     }
 
     modifier onlyFundManager() {
-        require(msg.sender == fundManager, "Only fund manager can call this function");
+        if (msg.sender != fundManager) revert OnlyFundManager();
         _;
     }
 
-    modifier onlyWhitelisted(address tokenIn, address tokenOut) {
-        require(IFluidFlowFactory(factory).isTokenWhitelisted(tokenIn), "TokenIn not whitelisted");
-        require(IFluidFlowFactory(factory).isTokenWhitelisted(tokenOut), "TokenOut not whitelisted");
-        _;
-    }
+    // modifier onlyWhitelisted(address tokenIn, address tokenOut) {
+    //     if (!IFluidFlowFactory(factory).isTokenWhitelisted(tokenIn)) revert TokenInNotWhitelisted(tokenIn);
+    //     if (!IFluidFlowFactory(factory).isTokenWhitelisted(tokenOut)) revert TokenOutNotWhitelisted(tokenOut);
+    //     _;
+    // }
 
     // --------------------
     // Event Declarations
     // --------------------
-    event TradeExecuted(uint256 positionId, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
     event UserLiquidated(address indexed user, uint256 tokenBalance, uint256 amountTaken);
     event PositionClosed(uint256 positionId);
     event FundClosed();
+
+    event FundFlow(ISuperToken _acceptedToken, 
+        address _fundManager,
+        uint256 _fundDuration,
+        uint256 _subscriptionDuration,
+        address _factory,
+        string _fundTokenName,
+        string _fundTokenSymbol);
 
     constructor(
         ISuperToken _acceptedToken, 
@@ -81,7 +102,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     ) CFASuperAppBase(
             ISuperfluid(ISuperToken(_acceptedToken).getHost())
         ) {
-        require(_fundDuration > _subscriptionDuration, "Fund duration must be longer than subscription period"); // sub duration
+        if (_fundDuration <= _subscriptionDuration) revert FundDurationTooShort();
         owner = msg.sender;
         acceptedToken = _acceptedToken;
         fundManager = _fundManager;
@@ -112,14 +133,22 @@ contract SuperFluidFlow is CFASuperAppBase {
         
         // Set the fund token
         fundToken = ISuperToken(address(tokenProxy));
+
+        emit FundFlow(_acceptedToken, 
+         _fundManager,
+        _fundDuration,
+        _subscriptionDuration,
+         _factory,
+         _fundTokenName,
+        _fundTokenSymbol);
     }
 
     // Modifier to check time constraints
-    modifier checkTimeConstraints() {
-        require(block.timestamp <= fundEndTime, "Fund has ended");
-        require(block.timestamp <= subscriptionDeadline, "Subscription period has ended");
-        _;
-    }
+    // modifier checkTimeConstraints() {
+    //     if (block.timestamp > fundEndTime) revert TradingPeriodEnded();
+    //     if (block.timestamp > subscriptionDeadline) revert SubscriptionPeriodEnded();
+    //     _;
+    // }
 
     function isAcceptedSuperToken(ISuperToken superToken) public view override returns (bool) {
         return superToken == acceptedToken;
@@ -140,10 +169,14 @@ contract SuperFluidFlow is CFASuperAppBase {
         // TODO: Think of a way to give the positions back to the user if the user is liquidating before the end date.
     }
 
-    // TODO: only for test, change afterwards
-    function changeAcceptedSuperToken(ISuperToken _token) public {
-        acceptedToken = _token;
+    function changeFundTokenAdd(ISuperToken _add) external {
+        fundToken = _add;
     }
+
+    // TODO: only for test, change afterwards
+    // function changeAcceptedSuperToken(ISuperToken _token) public {
+    //     acceptedToken = _token;
+    // }
 
     // ---------------------------------------------------------------------------------------------
     // SUPER APP CALLBACKS
@@ -161,14 +194,19 @@ contract SuperFluidFlow is CFASuperAppBase {
         address sender,
         bytes calldata ctx
     ) internal override returns (bytes memory newCtx) {
-        // TODO: remove require -> send back stream
-        require(block.timestamp <= subscriptionDeadline, "Subscription period has ended");
+        if (block.timestamp > subscriptionDeadline) revert SubscriptionPeriodEnded();
 
         int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         // Start fund token stream to the sender
-        newCtx = fundToken.createFlowWithCtx(sender, senderFlowRate, ctx); 
+        fundToken.createFlow(sender, senderFlowRate);
         // No flow event emitted per your request
+
+        newCtx = ctx;
+    }
+
+    function testStartStream(int96 flowRate) external {
+        fundToken.createFlow(msg.sender, flowRate);
     }
 
     /*
@@ -195,7 +233,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         // Update fund token stream to the sender
         newCtx = fundToken.updateFlowWithCtx(sender, currentFlowRate, ctx);
         // No flow event emitted per your request
-                
     }
 
     /*
@@ -219,7 +256,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         // Delete fund token stream to the sender
         newCtx = fundToken.deleteFlowWithCtx(address(this), sender, ctx);
         // No flow event emitted per your request
-
     }
 
     // Trading function
@@ -229,84 +265,55 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 amountIn,
         uint256 minAmountOut,
         uint24 poolFee
-    ) external onlyFundManager onlyWhitelisted(tokenIn, tokenOut) {
-        require(positions.length < MAX_POSITIONS, "Max positions reached");
-        require(block.timestamp <= fundEndTime, "Trading period ended");
-
-        // TODO: Downgrade from supepr usdc to usdc
+    ) external onlyFundManager {
+        if (block.timestamp > fundEndTime) revert TradingPeriodEnded();
         
-        // Approve the router to spend tokenIn
-        TransferHelper.safeApprove(tokenIn, UNISWAP_V3_ROUTER, amountIn);
-        
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn: tokenIn,
-            tokenOut: tokenOut,
-            fee: poolFee,
-            recipient: address(this),
-            deadline: block.timestamp + 15 minutes,
-            amountIn: amountIn,
-            amountOutMinimum: minAmountOut,
-            sqrtPriceLimitX96: 0
-        });
+        require(tradeExecutor != address(0), "Trade executor not set");
 
-        uint256 amountOut = ISwapRouter(UNISWAP_V3_ROUTER).exactInputSingle(params);
+        uint256 amountOut = TradeExecutor(tradeExecutor).executeSwap(
+            tokenIn,
+            tokenOut,
+            amountIn,
+            minAmountOut,
+            poolFee,
+            address(this)
+        );
         
-        positions.push(Position({
-            tokenIn: tokenIn,
-            tokenOut: tokenOut,
-            amountIn: amountIn,
-            amountOut: amountOut,
-            timestamp: block.timestamp,
-            isOpen: true
-        }));
-
-        uint256 newPositionId = positions.length - 1;
-        emit TradeExecuted(newPositionId, tokenIn, tokenOut, amountIn, amountOut);
+        // Emit event with all trade details instead of storing
+        emit TradeExecuted(
+            tokenIn,
+            tokenOut,
+            amountIn,
+            amountOut,
+            block.timestamp,
+            true  // isOpen flag
+        );
     }
 
-    // TODO: Adjest position for partial closes
-
-    // Function to close a position
-    function closePosition(uint256 positionId) external onlyFundManager {
-        require(positionId < positions.length, "Invalid position ID");
-
-        // TODO: execute trade with uniswap from token -> usdc
-
-        Position storage position = positions[positionId];
-        require(position.isOpen, "Position already closed");
+    // function closeFund() external onlyFundManager {
+    //     if (!isFundActive) revert FundNotActive();
         
-        // Implement logic to close the trade/position if needed.
-        position.isOpen = false;
-        emit PositionClosed(positionId);
-    }
-
-    function closeFund() external onlyFundManager {
-        require(isFundActive, "Fund is not active");
+    //     // TODO: check the amount of usdc available in contract
         
-        for (uint256 i = 0; i < positions.length; i++) {
-            if (positions[i].isOpen) {
-                require(false, "All positions should be closed");
-            }
-        }
+    //     isFundActive = false;
 
-        // TODO: check the amount of usdc available in contract
-        
-        isFundActive = false;
+    //     // TODO: calculate the amount of usdc in the contract and let fund manager take the profit sharing.
+    //     // 100 usdc
+    //     // 110 usdc -> profit
+    //     // 10 -> 1 -> fund manager
 
+    //     if (totalStreamed < acceptedToken.balanceOf(address(this))) {
+    //         // Send the % back to fund manager
+    //     }
 
-        // TODO: calculate the amount of usdc in the contract and let fund manager take the profit sharing.
-        // 100 usdc
-        // 110 usdc -> profit
-        // 10 -> 1 -> fund manager
-
-        if (totalStreamed < acceptedToken.balanceOf(address(this))) {
-            // Send the % back to fund manager
-        }
-
-        emit FundClosed();
-    }
+    //     emit FundClosed();
+    // }
 
     // funciton claimLiquidation() {
     //     // fundToken 
     // }
+
+    function setTradeExecutor(address _tradeExecutor) external onlyOwner {
+        tradeExecutor = _tradeExecutor;
+    }
 }
