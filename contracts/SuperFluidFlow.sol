@@ -275,8 +275,7 @@ contract SuperFluidFlow is CFASuperAppBase {
             tokenOut,
             amountIn,
             minAmountOut,
-            poolFee,
-            address(this)
+            poolFee
         );
         
         // Emit event with all trade details instead of storing
