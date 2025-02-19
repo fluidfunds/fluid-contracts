@@ -9,13 +9,26 @@ import "./IV3SwapRouter.sol";
 contract TradeExecutor is Ownable {
     address public UNISWAP_V3_ROUTER;
 
+    mapping(address => bool) public whitelistedTokens;
+    event UniswapV3RouterUpdated(address indexed oldRouter, address indexed newRouter);
+    event TokenWhitelistStatusUpdated(address indexed token, bool status);
+
     constructor(address _uniswapV3Router) {
         UNISWAP_V3_ROUTER = _uniswapV3Router; 
     }
 
     function setUniswapV3Router(address _uniswapV3Router) external onlyOwner {
-        UNISWAP_V3_ROUTER = _uniswapV3Router; 
+        address oldRouter = UNISWAP_V3_ROUTER;
+        UNISWAP_V3_ROUTER = _uniswapV3Router;
+        emit UniswapV3RouterUpdated(oldRouter, _uniswapV3Router);
     }
+
+    function setWhitelistedToken(address _token, bool _status) external onlyOwner {
+        whitelistedTokens[_token] = _status;
+        emit TokenWhitelistStatusUpdated(_token, _status);
+    }
+
+    error TokenNotWhitelisted();
 
     /**
      * @notice Executes a swap on UniswapV3.
@@ -33,6 +46,7 @@ contract TradeExecutor is Ownable {
         uint256 minAmountOut,
         uint24 fee
     ) external returns (uint256 amountOut) {
+        if (!whitelistedTokens[tokenIn] || !whitelistedTokens[tokenOut]) revert TokenNotWhitelisted();
         // Approve the Uniswap router to spend tokenIn
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
         TransferHelper.safeApprove(tokenIn, UNISWAP_V3_ROUTER, amountIn);

@@ -10,7 +10,6 @@ import {IGeneralDistributionAgreementV1, ISuperfluidPool, PoolConfig} from "@sup
 
 import "./PureSuperToken.sol";
 import {ISuperTokenFactory} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
-import {IFluidFlowFactory} from "./IFluidFlowFactory.sol";
 import "./TradeExecutor.sol";
 
 contract SuperFluidFlow is CFASuperAppBase {
@@ -19,16 +18,10 @@ contract SuperFluidFlow is CFASuperAppBase {
     // Custom Errors
     error OnlyOwner();
     error OnlyFundManager();
-    error TokenInNotWhitelisted(address tokenIn);
-    error TokenOutNotWhitelisted(address tokenOut);
     error FundDurationTooShort();
     error SubscriptionPeriodEnded();
-    error MaxPositionsReached();
-    error TradingPeriodEnded();
-    error InvalidPositionId();
-    error PositionAlreadyClosed();
-    error FundNotActive();
-    error OpenPositionsExist();
+    // error TradingPeriodEnded();
+    error FundStillActive();
  
     address public owner;
     ISuperToken acceptedToken;
@@ -42,9 +35,6 @@ contract SuperFluidFlow is CFASuperAppBase {
     // Timestamp variables
     uint256 public fundEndTime;
     uint256 public subscriptionDeadline;
-
-    address public constant UNISWAP_V3_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    uint8 public constant MAX_POSITIONS = 10;
 
     address public factory;
     address public tradeExecutor;
@@ -70,11 +60,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         _;
     }
 
-    // modifier onlyWhitelisted(address tokenIn, address tokenOut) {
-    //     if (!IFluidFlowFactory(factory).isTokenWhitelisted(tokenIn)) revert TokenInNotWhitelisted(tokenIn);
-    //     if (!IFluidFlowFactory(factory).isTokenWhitelisted(tokenOut)) revert TokenOutNotWhitelisted(tokenOut);
-    //     _;
-    // }
 
     // --------------------
     // Event Declarations
@@ -91,6 +76,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         string _fundTokenName,
         string _fundTokenSymbol);
 
+    event UserWithdrawn(address indexed user, uint256 fundTokensRedeemed, uint256 amountReceived);
+
     constructor(
         ISuperToken _acceptedToken, 
         address _fundManager,
@@ -98,7 +85,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 _subscriptionDuration,
         address _factory,
         string memory _fundTokenName,
-        string memory _fundTokenSymbol
+        string memory _fundTokenSymbol,
+        address _tradeExec
     ) CFASuperAppBase(
             ISuperfluid(ISuperToken(_acceptedToken).getHost())
         ) {
@@ -106,6 +94,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         owner = msg.sender;
         acceptedToken = _acceptedToken;
         fundManager = _fundManager;
+
+        tradeExecutor = _tradeExec;
         
         // TODO: pass the endtime instead of calculating
         fundEndTime = block.timestamp + _fundDuration;
@@ -143,40 +133,11 @@ contract SuperFluidFlow is CFASuperAppBase {
         _fundTokenSymbol);
     }
 
-    // Modifier to check time constraints
-    // modifier checkTimeConstraints() {
-    //     if (block.timestamp > fundEndTime) revert TradingPeriodEnded();
-    //     if (block.timestamp > subscriptionDeadline) revert SubscriptionPeriodEnded();
-    //     _;
-    // }
+
 
     function isAcceptedSuperToken(ISuperToken superToken) public view override returns (bool) {
         return superToken == acceptedToken;
     }
-
-    function liquidateUser() public {
-        uint256 fundTokenUserBalance = fundToken.balanceOf(msg.sender);
-
-        fundToken.transferFrom(msg.sender, address(this), fundTokenUserBalance);
-
-        uint256 proportion = (fundTokenUserBalance * 1e18) / totalStreamed;
-        uint256 amountToTake = (proportion * fundTokenUserBalance) / 1e18;
-
-        totalStreamed -= fundTokenUserBalance;
-
-        emit UserLiquidated(msg.sender, fundTokenUserBalance, amountToTake);
-
-        // TODO: Think of a way to give the positions back to the user if the user is liquidating before the end date.
-    }
-
-    function changeFundTokenAdd(ISuperToken _add) external {
-        fundToken = _add;
-    }
-
-    // TODO: only for test, change afterwards
-    // function changeAcceptedSuperToken(ISuperToken _token) public {
-    //     acceptedToken = _token;
-    // }
 
     // ---------------------------------------------------------------------------------------------
     // SUPER APP CALLBACKS
@@ -203,10 +164,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         // No flow event emitted per your request
 
         newCtx = ctx;
-    }
-
-    function testStartStream(int96 flowRate) external {
-        fundToken.createFlow(msg.sender, flowRate);
     }
 
     /*
@@ -255,20 +212,24 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         // Delete fund token stream to the sender
         newCtx = fundToken.deleteFlowWithCtx(address(this), sender, ctx);
-        // No flow event emitted per your request
     }
 
-    // Trading function
+    // function downgradeAcceptedToken() external onlyFundManager {
+    //     acceptedToken.downgrade(acceptedToken.balanceOf(address(this)));
+    // }
+
     function executeTrade(
         address tokenIn,
-        address tokenOut,
+        address tokenOut, 
         uint256 amountIn,
-        uint256 minAmountOut,
-        uint24 poolFee
+        uint256 minAmountOut, 
+        uint24 poolFee 
     ) external onlyFundManager {
-        if (block.timestamp > fundEndTime) revert TradingPeriodEnded();
-        
-        require(tradeExecutor != address(0), "Trade executor not set");
+        // if (block.timestamp > fundEndTime) revert TradingPeriodEnded();
+
+        acceptedToken.downgrade(acceptedToken.balanceOf(address(this)));
+
+        IERC20(tokenIn).approve(address(tradeExecutor), amountIn);
 
         uint256 amountOut = TradeExecutor(tradeExecutor).executeSwap(
             tokenIn,
@@ -285,34 +246,51 @@ contract SuperFluidFlow is CFASuperAppBase {
             amountIn,
             amountOut,
             block.timestamp,
-            true  // isOpen flag
+            true
         );
     }
 
-    // function closeFund() external onlyFundManager {
-    //     if (!isFundActive) revert FundNotActive();
+    function closeFund() external onlyFundManager {
+        if (isFundActive){
+            uint256 currentBalance = acceptedToken.balanceOf(address(this));
         
-    //     // TODO: check the amount of usdc available in contract
-        
-    //     isFundActive = false;
+            isFundActive = false;
 
-    //     // TODO: calculate the amount of usdc in the contract and let fund manager take the profit sharing.
-    //     // 100 usdc
-    //     // 110 usdc -> profit
-    //     // 10 -> 1 -> fund manager
+            // Calculate profit (if any)
+            if (currentBalance > totalStreamed) {
+                uint256 profitInUSD = currentBalance - totalStreamed;
+                // Fund manager gets 10% of profits
+                uint256 managerShare = (profitInUSD * 10) / 100;
+                
+                // Transfer manager's share
+                acceptedToken.transfer(fundManager, managerShare);
+            }
 
-    //     if (totalStreamed < acceptedToken.balanceOf(address(this))) {
-    //         // Send the % back to fund manager
-    //     }
+            emit FundClosed();
+        }
+    
+    }
 
-    //     emit FundClosed();
+    // function setTradeExecutor(address _tradeExecutor) external onlyOwner {
+    //     tradeExecutor = _tradeExecutor;
     // }
 
-    // funciton claimLiquidation() {
-    //     // fundToken 
-    // }
+    function withdraw() external {
+        if (isFundActive) revert FundStillActive();
+        
+        uint256 userFundTokenBalance = fundToken.balanceOf(msg.sender);
 
-    function setTradeExecutor(address _tradeExecutor) external onlyOwner {
-        tradeExecutor = _tradeExecutor;
+        // Calculate user's proportional share of the total assets
+        uint256 totalFundTokenSupply = fundToken.totalSupply();
+        uint256 contractBalance = acceptedToken.balanceOf(address(this));
+        uint256 userShare = (contractBalance * userFundTokenBalance) / totalFundTokenSupply;
+
+        // Burn the user's fund tokens
+        fundToken.transferFrom(msg.sender, address(this), userFundTokenBalance);
+
+        // Transfer the proportional share of accepted tokens to the user
+        acceptedToken.transfer(msg.sender, userShare);
+
+        emit UserWithdrawn(msg.sender, userFundTokenBalance, userShare);
     }
 }

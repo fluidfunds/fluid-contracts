@@ -9,7 +9,6 @@ import { ISuperToken } from "@superfluid-finance/ethereum-contracts/contracts/in
 contract FluidFlowFactory is Ownable, ReentrancyGuard {
     // Events
     event FundCreated(address indexed fundAddress, address indexed manager, string name);
-    event TokenWhitelisted(address indexed token, bool status);
 
     // Custom errors
     error InvalidAcceptedToken();
@@ -19,15 +18,15 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     error InvalidToken();
     error ArrayLengthMismatch();
 
-    // State variables
-    mapping(address => bool) public whitelistedTokens;
     mapping(address => bool) public isFund;
     address[] public allFunds;
     ISuperToken public acceptedToken; // make it immutable
+    address public tradeExec;
 
-    constructor(ISuperToken _acceptedToken) {
+    constructor(ISuperToken _acceptedToken, address _tradeExec) {
         if (address(_acceptedToken) == address(0)) revert InvalidAcceptedToken();
         acceptedToken = _acceptedToken;
+        tradeExec = _tradeExec;
     }
 
     /**
@@ -61,7 +60,8 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
             subscriptionDuration,
             address(this), // factory address
             fundTokenName,
-            fundTokenSymbol
+            fundTokenSymbol,
+            tradeExec
         );
 
         address fundAddress = address(newFund);
@@ -72,40 +72,6 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         return fundAddress;
     }
 
-    /**
-     * @notice Whitelist or de-whitelist a token for trading.
-     * @param token Token address to whitelist.
-     * @param status True to whitelist, false to de-whitelist.
-     */
-    function setTokenWhitelisted(address token, bool status) external onlyOwner {
-        if (token == address(0)) revert InvalidToken();
-        whitelistedTokens[token] = status;
-        emit TokenWhitelisted(token, status);
-    }
 
-    /**
-     * @notice Batch whitelist or de-whitelist tokens.
-     * @param tokens Array of token addresses.
-     * @param statuses Array of whitelist statuses.
-     */
-    // function batchSetTokenWhitelisted(
-    //     address[] calldata tokens,
-    //     bool[] calldata statuses
-    // ) external onlyOwner {
-    //     if (tokens.length != statuses.length) revert ArrayLengthMismatch();
-    //     for (uint i = 0; i < tokens.length; i++) {
-    //         if (tokens[i] == address(0)) revert InvalidToken();
-    //         whitelistedTokens[tokens[i]] = statuses[i];
-    //         emit TokenWhitelisted(tokens[i], statuses[i]);
-    //     }
-    // }
-
-    /**
-     * @notice Check if a token is whitelisted.
-     * @param token Token address to check.
-     */
-    function isTokenWhitelisted(address token) external view returns (bool) {
-        return whitelistedTokens[token];
-    }
 }
 
