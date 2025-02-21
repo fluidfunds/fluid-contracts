@@ -1,0 +1,29 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: FluidFlowFactory
+    network: sepolia
+    source:
+      address: "0xd159d1A054BE9AC73857182127Ed924BB4fa10e6"
+      abi: FluidFlowFactory
+      startBlock: 7743467
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - FundCreated
+        - OwnershipTransferred
+      abis:
+        - name: FluidFlowFactory
+          file: ./abis/FluidFlowFactory.json
+      eventHandlers:
+        - event: FundCreated(indexed address,indexed address,string)
+          handler: handleFundCreated
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+      file: ./src/fluid-flow-factory.ts
