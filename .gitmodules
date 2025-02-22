@@ -1,0 +1,3 @@
+[submodule "found-fluid/lib/forge-std"]
+	path = found-fluid/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
