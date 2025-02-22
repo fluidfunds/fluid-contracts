@@ -12,9 +12,9 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
 
     // Custom errors
     error InvalidAcceptedToken();
-    error ProfitSharingPercentageTooHigh();
-    error InvalidSubscriptionEndTime();
-    error FundDurationTooShort();
+    // error ProfitSharingPercentageTooHigh();
+    // error InvalidSubscriptionEndTime();
+    // error FundDurationTooShort();
     error InvalidToken();
     error ArrayLengthMismatch();
 
@@ -42,12 +42,12 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         uint256 subscriptionEndTime,
         uint256 fundDuration
     ) external nonReentrant returns (address) {
-        if (profitSharingPercentage > 5000) revert ProfitSharingPercentageTooHigh();
-        if (subscriptionEndTime <= block.timestamp) revert InvalidSubscriptionEndTime();
+        // if (profitSharingPercentage > 5000) revert ProfitSharingPercentageTooHigh();
+        // if (subscriptionEndTime <= block.timestamp) revert InvalidSubscriptionEndTime();
 
         // Calculate subscription duration
         uint256 subscriptionDuration = subscriptionEndTime - block.timestamp;
-        if (fundDuration <= subscriptionDuration) revert FundDurationTooShort();
+        // if (fundDuration <= subscriptionDuration) revert FundDurationTooShort();
 
         // Create fund token name and symbol
         string memory fundTokenName = string(abi.encodePacked("FluidFund"));

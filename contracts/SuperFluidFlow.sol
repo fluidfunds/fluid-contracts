@@ -60,6 +60,11 @@ contract SuperFluidFlow is CFASuperAppBase {
         _;
     }
 
+    function createFundFlow(address user) external {
+        int96 rate = acceptedToken.getFlowRate(user, address(this));
+        fundToken.createFlow(user, rate);
+    }
+
 
     // --------------------
     // Event Declarations
@@ -151,19 +156,21 @@ contract SuperFluidFlow is CFASuperAppBase {
      * @return bytes Returns the transaction context.
      */
     function onFlowCreated(
-        ISuperToken /*superToken*/,
+        ISuperToken ,//superToken,
         address sender,
         bytes calldata ctx
     ) internal override returns (bytes memory newCtx) {
         if (block.timestamp > subscriptionDeadline) revert SubscriptionPeriodEnded();
 
+        newCtx = ctx;
+
         int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         // Start fund token stream to the sender
-        fundToken.createFlow(sender, senderFlowRate);
+        newCtx = fundToken.createFlowWithCtx(sender, senderFlowRate, ctx);
         // No flow event emitted per your request
 
-        newCtx = ctx;
+        return newCtx;
     }
 
     /*
@@ -176,7 +183,7 @@ contract SuperFluidFlow is CFASuperAppBase {
      * @return bytes Returns the updated context.
      */
     function onFlowUpdated(
-        ISuperToken,
+        ISuperToken superToken,
         address sender,
         int96 previousflowRate,
         uint256 lastUpdated,
@@ -185,11 +192,13 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 timeElapsed = block.timestamp - lastUpdated;
         totalStreamed += uint256(uint96(previousflowRate)) * timeElapsed;
 
-        int96 currentFlowRate = acceptedToken.getFlowRate(sender, address(this));
+        int96 currentFlowRate = superToken.getFlowRate(sender, address(this));
         
         // Update fund token stream to the sender
         newCtx = fundToken.updateFlowWithCtx(sender, currentFlowRate, ctx);
         // No flow event emitted per your request
+        return newCtx;
+
     }
 
     /*
@@ -212,6 +221,8 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         // Delete fund token stream to the sender
         newCtx = fundToken.deleteFlowWithCtx(address(this), sender, ctx);
+        return newCtx;
+
     }
 
     // function downgradeAcceptedToken() external onlyFundManager {

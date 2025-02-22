@@ -3,7 +3,7 @@ const { ethers, network } = require("hardhat");
 async function main() {
   // For local testing, you might want to use placeholder addresses
   // Replace these with actual addresses when deploying to testnet/mainnet
-  const USDCX_ADDRESS = "0x1650581F573eAd727B92073B5Ef8B4f5B94D1648"; 
+  const USDCX_ADDRESS = "0xb598E6C621618a9f63788816ffb50Ee2862D443B"; 
   const TRADE_EXEC = "0xFdB43deec35e10dd2AC758e63Ef28b337B30270f"
 
   console.log("Deploying FluidFlowFactory...");

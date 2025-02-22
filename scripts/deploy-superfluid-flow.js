@@ -2,7 +2,7 @@ const { ethers } = require("hardhat");
 
 async function main() {
   // Configuration parameters
-  const ACCEPTED_TOKEN = "0xb598e6c621618a9f63788816ffb50ee2862d443b"; // USDCx address
+  const ACCEPTED_TOKEN = "0xb598E6C621618a9f63788816ffb50Ee2862D443B"; // USDCx address
   const FUND_MANAGER = "0x97A1F968762B1D12c394e62AAA480998518a3744"; // Replace with actual fund manager address
   const FUND_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
   const SUBSCRIPTION_DURATION = 7 * 24 * 60 * 60; // 7 days in seconds
