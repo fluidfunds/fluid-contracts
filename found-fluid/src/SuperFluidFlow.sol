@@ -23,7 +23,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     error FundStillActive();
  
     address public owner;
-    ISuperToken acceptedToken;
+    ISuperToken public acceptedToken;
     address public fundManager;
     ISuperToken public fundToken;
 

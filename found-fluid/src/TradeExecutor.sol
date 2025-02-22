@@ -20,7 +20,7 @@ contract TradeExecutor is Ownable {
         address indexed trader
     );
 
-    constructor(address _uniswapV3Router) Ownable(msg.sender) {
+    constructor(address _uniswapV3Router) {
         UNISWAP_V3_ROUTER = _uniswapV3Router; 
     }
 
