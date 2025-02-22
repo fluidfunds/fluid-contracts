@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./SuperFluidFlow.sol";
 import { ISuperToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperToken.sol";
+import { ISuperfluid } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 
 contract FluidFlowFactory is Ownable, ReentrancyGuard {
     // Events
@@ -54,6 +55,10 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         string memory fundTokenSymbol = string(abi.encodePacked("FF", name));
 
         SuperFluidFlow newFund = new SuperFluidFlow(
+            ISuperfluid(acceptedToken.getHost())
+        );
+
+        newFund.initialize(
             acceptedToken,
             msg.sender, // fund manager
             fundDuration,

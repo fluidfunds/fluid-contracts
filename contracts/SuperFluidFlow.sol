@@ -83,7 +83,11 @@ contract SuperFluidFlow is CFASuperAppBase {
 
     event UserWithdrawn(address indexed user, uint256 fundTokensRedeemed, uint256 amountReceived);
 
-    constructor(
+    constructor(ISuperfluid host) CFASuperAppBase(host) {
+        owner = msg.sender;
+    }
+
+    function initialize(
         ISuperToken _acceptedToken, 
         address _fundManager,
         uint256 _fundDuration,
@@ -92,17 +96,14 @@ contract SuperFluidFlow is CFASuperAppBase {
         string memory _fundTokenName,
         string memory _fundTokenSymbol,
         address _tradeExec
-    ) CFASuperAppBase(
-            ISuperfluid(ISuperToken(_acceptedToken).getHost())
-        ) {
+    ) external {
+        if (msg.sender != owner) revert OnlyOwner();
         if (_fundDuration <= _subscriptionDuration) revert FundDurationTooShort();
-        owner = msg.sender;
+        
         acceptedToken = _acceptedToken;
         fundManager = _fundManager;
-
         tradeExecutor = _tradeExec;
         
-        // TODO: pass the endtime instead of calculating
         fundEndTime = block.timestamp + _fundDuration;
         subscriptionDeadline = block.timestamp + _subscriptionDuration;
         factory = _factory;
@@ -113,7 +114,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
         
         // Get SuperToken factory from host
-        ISuperfluid host = ISuperfluid(ISuperToken(_acceptedToken).getHost());
         ISuperTokenFactory superTokenFactory = ISuperTokenFactory(host.getSuperTokenFactory());
         
         // Initialize the token with 1 billion units (assuming 18 decimals)
@@ -122,20 +122,21 @@ contract SuperFluidFlow is CFASuperAppBase {
             superTokenFactory,
             _fundTokenName,
             _fundTokenSymbol,
-            address(this), // token receiver
+            address(this),
             initialSupply
         );
         
-        // Set the fund token
         fundToken = ISuperToken(address(tokenProxy));
 
-        emit FundFlow(_acceptedToken, 
-         _fundManager,
-        _fundDuration,
-        _subscriptionDuration,
-         _factory,
-         _fundTokenName,
-        _fundTokenSymbol);
+        emit FundFlow(
+            _acceptedToken,
+            _fundManager,
+            _fundDuration,
+            _subscriptionDuration,
+            _factory,
+            _fundTokenName,
+            _fundTokenSymbol
+        );
     }
 
 
