@@ -4,3 +4,6 @@
 [submodule "found-fluid/lib/openzeppelin-contracts"]
 	path = found-fluid/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "found-fluid/lib/protocol-monorepo"]
+	path = found-fluid/lib/protocol-monorepo
+	url = https://github.com/superfluid-finance/protocol-monorepo
