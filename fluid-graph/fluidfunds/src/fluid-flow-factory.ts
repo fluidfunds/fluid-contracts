@@ -11,6 +11,9 @@ export function handleFundCreated(event: FundCreatedEvent): void {
   entity.fundAddress = event.params.fundAddress
   entity.manager = event.params.manager
   entity.name = event.params.name
+  entity.fee = event.params.fee
+  entity.startTime = event.params.startTime
+  entity.duration = event.params.duration
 
   entity.blockNumber = event.block.number
   entity.blockTimestamp = event.block.timestamp

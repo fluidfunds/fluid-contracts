@@ -8,6 +8,7 @@ contract CreateFund is Script {
     function run() external {
         address factory = vm.envAddress("FACTORY_ADDRESS");
         address tradeExecutor = vm.envAddress("TRADE_EXECUTOR");
+        address acceptedToken = vm.envAddress("ACCEPTED_TOKEN");
         
         vm.startBroadcast();
         FluidFlowFactory(factory).createFund(
@@ -15,7 +16,7 @@ contract CreateFund is Script {
             1000, // 10% fee
             block.timestamp + 7 days,
             30 days,
-            tradeExecutor
+            acceptedToken
         );
         vm.stopBroadcast();
     }

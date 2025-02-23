@@ -11,15 +11,13 @@ import "./PureSuperToken.sol";
 
 contract FluidFlowFactory is Ownable, ReentrancyGuard {
     // Events
-    event FundCreated(address indexed fundAddress, address indexed manager, string name);
+    event FundCreated(address indexed fundAddress, address indexed manager, string name, uint256 fee, uint256 startTime, uint256 duration);
 
     // Custom errors
     error InvalidAcceptedToken();
     error InvalidToken();
     error ArrayLengthMismatch();
 
-    mapping(address => bool) public isFund;
-    address[] public allFunds;
     ISuperToken public acceptedToken;
     address public tradeExec;
 
@@ -55,9 +53,12 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         string memory name,
         uint256 profitSharingPercentage,
         uint256 subscriptionEndTime,
-        uint256 fundDuration
+        uint256 fundDuration,
+        ISuperToken _acceptedToken
     ) external nonReentrant returns (address) {
         uint256 subscriptionDuration = subscriptionEndTime - block.timestamp;
+
+        acceptedToken = _acceptedToken;
 
         // Create fund token name and symbol
         string memory fundTokenName = string(abi.encodePacked("FluidFund"));
@@ -79,10 +80,8 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         );
 
         address fundAddress = address(newFund);
-        isFund[fundAddress] = true;
-        allFunds.push(fundAddress);
 
-        emit FundCreated(fundAddress, msg.sender, name);
+        emit FundCreated(fundAddress, msg.sender, name, profitSharingPercentage, subscriptionEndTime, fundDuration);
         return fundAddress;
     }
 

@@ -3,15 +3,15 @@ pragma solidity ^0.8.19;
 
 import {Script} from "forge-std/Script.sol";
 import {FluidFlowFactory} from "../src/FluidFlowFactory.sol";
+import { ISuperfluid } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 
 contract DeployFluidFlowFactory is Script {
-    // Network-specific addresses
-    address constant USDCX = 0xb598E6C621618a9f63788816ffb50Ee2862D443B;
-    address constant TRADE_EXECUTOR = 0xFdB43deec35e10dd2AC758e63Ef28b337B30270f;
+    ISuperfluid host = ISuperfluid(0x109412E3C84f0539b43d39dB691B08c90f58dC7c);
+    address constant TRADE_EXECUTOR = 0xD63c3ba1130b584549d82c87C33dF1a1c285b41c;
 
     function run() external {
         vm.startBroadcast();
-        new FluidFlowFactory(USDCX, TRADE_EXECUTOR);
+        new FluidFlowFactory(host, TRADE_EXECUTOR);
         vm.stopBroadcast();
     }
 }

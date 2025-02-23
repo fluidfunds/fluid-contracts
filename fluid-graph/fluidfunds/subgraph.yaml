@@ -1,4 +1,4 @@
-specVersion: 1.0.0
+specVersion: 1.2.0
 indexerHints:
   prune: auto
 schema:
@@ -8,12 +8,12 @@ dataSources:
     name: FluidFlowFactory
     network: sepolia
     source:
-      address: "0xd159d1A054BE9AC73857182127Ed924BB4fa10e6"
+      address: "0x5C5c0dC48B671b0e9Bc7CD1DcBE3f59976505901"
       abi: FluidFlowFactory
-      startBlock: 7743467
+      startBlock: 7767051
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
         - FundCreated
@@ -22,7 +22,7 @@ dataSources:
         - name: FluidFlowFactory
           file: ./abis/FluidFlowFactory.json
       eventHandlers:
-        - event: FundCreated(indexed address,indexed address,string)
+        - event: FundCreated(indexed address,indexed address,string,uint256,uint256,uint256)
           handler: handleFundCreated
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred

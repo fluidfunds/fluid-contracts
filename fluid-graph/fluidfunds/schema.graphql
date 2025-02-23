@@ -3,6 +3,9 @@ type FundCreated @entity(immutable: true) {
   fundAddress: Bytes! # address
   manager: Bytes! # address
   name: String! # string
+  fee: BigInt! # uint256
+  startTime: BigInt! # uint256
+  duration: BigInt! # uint256
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!

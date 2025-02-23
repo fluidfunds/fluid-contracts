@@ -1,5 +1,5 @@
 import { newMockEvent } from "matchstick-as"
-import { ethereum, Address } from "@graphprotocol/graph-ts"
+import { ethereum, Address, BigInt } from "@graphprotocol/graph-ts"
 import {
   FundCreated,
   OwnershipTransferred
@@ -8,7 +8,10 @@ import {
 export function createFundCreatedEvent(
   fundAddress: Address,
   manager: Address,
-  name: string
+  name: string,
+  fee: BigInt,
+  startTime: BigInt,
+  duration: BigInt
 ): FundCreated {
   let fundCreatedEvent = changetype<FundCreated>(newMockEvent())
 
@@ -25,6 +28,21 @@ export function createFundCreatedEvent(
   )
   fundCreatedEvent.parameters.push(
     new ethereum.EventParam("name", ethereum.Value.fromString(name))
+  )
+  fundCreatedEvent.parameters.push(
+    new ethereum.EventParam("fee", ethereum.Value.fromUnsignedBigInt(fee))
+  )
+  fundCreatedEvent.parameters.push(
+    new ethereum.EventParam(
+      "startTime",
+      ethereum.Value.fromUnsignedBigInt(startTime)
+    )
+  )
+  fundCreatedEvent.parameters.push(
+    new ethereum.EventParam(
+      "duration",
+      ethereum.Value.fromUnsignedBigInt(duration)
+    )
   )
 
   return fundCreatedEvent

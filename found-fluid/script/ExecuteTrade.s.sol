@@ -7,7 +7,7 @@ import {TradeExecutor} from "../src/TradeExecutor.sol";
 
 contract ExecuteTrade is Script {
     address constant TRADE_EXECUTOR = 0xFdB43deec35e10dd2AC758e63Ef28b337B30270f;
-    address constant DAIx = 0x9ce2062b085a2268e8d769ffc040f6692315fd2c;
+    address constant DAIx = 0x9Ce2062b085A2268E8d769fFC040f6692315fd2c;
     address constant USDCx = 0xb598E6C621618a9f63788816ffb50Ee2862D443B;
 
     function run() external {

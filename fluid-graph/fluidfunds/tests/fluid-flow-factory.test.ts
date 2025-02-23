@@ -6,7 +6,7 @@ import {
   beforeAll,
   afterAll
 } from "matchstick-as/assembly/index"
-import { Address } from "@graphprotocol/graph-ts"
+import { Address, BigInt } from "@graphprotocol/graph-ts"
 import { FundCreated } from "../generated/schema"
 import { FundCreated as FundCreatedEvent } from "../generated/FluidFlowFactory/FluidFlowFactory"
 import { handleFundCreated } from "../src/fluid-flow-factory"
@@ -24,7 +24,17 @@ describe("Describe entity assertions", () => {
       "0x0000000000000000000000000000000000000001"
     )
     let name = "Example string value"
-    let newFundCreatedEvent = createFundCreatedEvent(fundAddress, manager, name)
+    let fee = BigInt.fromI32(234)
+    let startTime = BigInt.fromI32(234)
+    let duration = BigInt.fromI32(234)
+    let newFundCreatedEvent = createFundCreatedEvent(
+      fundAddress,
+      manager,
+      name,
+      fee,
+      startTime,
+      duration
+    )
     handleFundCreated(newFundCreatedEvent)
   })
 
@@ -56,6 +66,24 @@ describe("Describe entity assertions", () => {
       "0xa16081f360e3847006db660bae1c6d1b2e17ec2a-1",
       "name",
       "Example string value"
+    )
+    assert.fieldEquals(
+      "FundCreated",
+      "0xa16081f360e3847006db660bae1c6d1b2e17ec2a-1",
+      "fee",
+      "234"
+    )
+    assert.fieldEquals(
+      "FundCreated",
+      "0xa16081f360e3847006db660bae1c6d1b2e17ec2a-1",
+      "startTime",
+      "234"
+    )
+    assert.fieldEquals(
+      "FundCreated",
+      "0xa16081f360e3847006db660bae1c6d1b2e17ec2a-1",
+      "duration",
+      "234"
     )
 
     // More assert options:
