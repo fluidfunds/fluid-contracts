@@ -27,3 +27,32 @@ dataSources:
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleOwnershipTransferred
       file: ./src/fluid-flow-factory.ts
+  - kind: ethereum
+    name: TradeExecutor
+    network: sepolia
+    source:
+      address: "0xD63c3ba1130b584549d82c87C33dF1a1c285b41c"
+      abi: TradeExecutor
+      startBlock: 7766972
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TradeExecutorOwnershipTransferred
+        - SwapExecuted
+        - TokenWhitelistStatusUpdated
+        - UniswapV3RouterUpdated
+      abis:
+        - name: TradeExecutor
+          file: ./abis/TradeExecutor.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+        - event: SwapExecuted(indexed address,indexed address,uint256,uint256,indexed address)
+          handler: handleSwapExecuted
+        - event: TokenWhitelistStatusUpdated(indexed address,bool)
+          handler: handleTokenWhitelistStatusUpdated
+        - event: UniswapV3RouterUpdated(indexed address,indexed address)
+          handler: handleUniswapV3RouterUpdated
+      file: ./src/trade-executor.ts
