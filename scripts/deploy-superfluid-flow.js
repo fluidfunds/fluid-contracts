@@ -6,10 +6,10 @@ async function main() {
   const FUND_MANAGER = "0x97A1F968762B1D12c394e62AAA480998518a3744"; // Replace with actual fund manager address
   const FUND_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
   const SUBSCRIPTION_DURATION = 7 * 24 * 60 * 60; // 7 days in seconds
-  const FACTORY_ADDRESS = "0x25c1FE30c5b560968B6f218f668cFA2F2b0BFFb8"; // Replace with deployed FluidFlowFactory address
+  const FACTORY_ADDRESS = "0x5C5c0dC48B671b0e9Bc7CD1DcBE3f59976505901"; // Replace with deployed FluidFlowFactory address
   const FUND_TOKEN_NAME = "Test Fund Token";
   const FUND_TOKEN_SYMBOL = "TFT";
-  const TRADE_EXEC = "0xFdB43deec35e10dd2AC758e63Ef28b337B30270f"
+  const TRADE_EXEC = "0xd63c3ba1130b584549d82c87c33df1a1c285b41c"
 
 
   console.log("Deploying SuperFluidFlow...");

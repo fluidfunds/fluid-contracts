@@ -162,11 +162,16 @@ contract SuperFluidFlow is CFASuperAppBase {
         address sender,
         bytes calldata ctx
     ) internal override returns (bytes memory newCtx) {
-        if (block.timestamp > subscriptionDeadline) revert SubscriptionPeriodEnded();
+        int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
+        
+        if (block.timestamp > subscriptionDeadline) {
+            // send back the tokens if subscription deadline has passed
+            newCtx = acceptedToken.createFlowWithCtx(sender, senderFlowRate, ctx);
+            return newCtx;
+        }
 
         newCtx = ctx;
 
-        int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         // Start fund token stream to the sender
         newCtx = fundToken.createFlowWithCtx(sender, senderFlowRate, ctx);
