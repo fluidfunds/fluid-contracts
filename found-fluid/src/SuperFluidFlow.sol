@@ -9,7 +9,7 @@ import {CFASuperAppBase} from "@superfluid-finance/ethereum-contracts/contracts/
 import {IGeneralDistributionAgreementV1, ISuperfluidPool, PoolConfig} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/gdav1/IGeneralDistributionAgreementV1.sol";
 
 import "./PureSuperToken.sol";
-import "./TradeExecutor.sol";
+import "./interfaces/ITradeExecutor.sol";
 
 contract SuperFluidFlow is CFASuperAppBase {
     using SuperTokenV1Library for ISuperToken;
@@ -249,7 +249,7 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         IERC20(tokenIn).approve(address(tradeExecutor), amountIn);
 
-        uint256 amountOut = TradeExecutor(tradeExecutor).executeSwap(
+        uint256 amountOut = ITradeExecutor(tradeExecutor).executeSwap(
             tokenIn,
             tokenOut,
             amountIn,
