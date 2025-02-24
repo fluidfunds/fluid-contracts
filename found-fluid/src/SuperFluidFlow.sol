@@ -229,9 +229,6 @@ contract SuperFluidFlow is CFASuperAppBase {
 
     }
 
-    // function downgradeAcceptedToken() external onlyFundManager {
-    //     acceptedToken.downgrade(acceptedToken.balanceOf(address(this)));
-    // }
 
     function executeTrade(
         address tokenIn,
@@ -240,7 +237,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 minAmountOut, 
         uint24 poolFee 
     ) external onlyFundManager {
-        // if (block.timestamp > fundEndTime) revert TradingPeriodEnded();
 
         acceptedToken.downgrade(acceptedToken.balanceOf(address(this)));
 
@@ -265,7 +261,13 @@ contract SuperFluidFlow is CFASuperAppBase {
         );
     }
 
-    function closeFund() external onlyFundManager {
+    function closeFund() public onlyFundManager {
+        IERC20 underlayingAcceptedToken = acceptedToken.getUnderlyingToken();
+        uint256 balance = underlayingAcceptedToken.balanceOf(address(this));
+        underlayingAcceptedToken.approve(address(acceptedToken), balance);
+
+        acceptedToken.upgrade(balance);
+
         if (isFundActive){
             uint256 currentBalance = acceptedToken.balanceOf(address(this));
         
