@@ -60,11 +60,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         _;
     }
 
-    function createFundFlow(address user) external {
-        int96 rate = acceptedToken.getFlowRate(user, address(this));
-        fundToken.createFlow(user, rate);
-    }
-
 
     // --------------------
     // Event Declarations
@@ -86,6 +81,8 @@ contract SuperFluidFlow is CFASuperAppBase {
     constructor(ISuperfluid _host) CFASuperAppBase(_host) {
         owner = msg.sender;
         host = _host;
+
+        _host.registerApp(getConfigWord(true, true, true));
     }
 
     function initialize(
