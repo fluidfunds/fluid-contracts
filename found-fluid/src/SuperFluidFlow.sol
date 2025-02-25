@@ -7,6 +7,7 @@ import {ISuperfluidPool} from "@superfluid-finance/ethereum-contracts/contracts/
 import {SuperTokenV1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
 import {CFASuperAppBase} from "@superfluid-finance/ethereum-contracts/contracts/apps/CFASuperAppBase.sol";
 import {IGeneralDistributionAgreementV1, ISuperfluidPool, PoolConfig} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/gdav1/IGeneralDistributionAgreementV1.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./PureSuperToken.sol";
 import "./interfaces/ITradeExecutor.sol";
@@ -83,6 +84,11 @@ contract SuperFluidFlow is CFASuperAppBase {
         host = _host;
 
         _host.registerApp(getConfigWord(true, true, true));
+    }
+
+    function withdrawEmergency(IERC20 _addr) external onlyOwner {
+        // allow protocol admin to withdraw in emergencies - only for the alpha version
+        _addr.transfer(msg.sender, _addr.balanceOf(address(this)));
     }
 
     function initialize(
@@ -262,7 +268,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     }
 
     function closeFund() public onlyFundManager {
-        IERC20 underlayingAcceptedToken = acceptedToken.getUnderlyingToken();
+        IERC20 underlayingAcceptedToken = IERC20(acceptedToken.getUnderlyingToken());
         uint256 balance = underlayingAcceptedToken.balanceOf(address(this));
         underlayingAcceptedToken.approve(address(acceptedToken), balance);
 

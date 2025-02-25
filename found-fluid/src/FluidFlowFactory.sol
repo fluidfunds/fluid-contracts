@@ -21,6 +21,7 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     ISuperToken public acceptedToken;
     address public tradeExec;
 
+
     constructor(ISuperfluid _host, address _tradeExec) {
         // Deploy new PureSuperTokenProxy for the accepted token
         PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
@@ -40,24 +41,24 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         
         acceptedToken = ISuperToken(address(tokenProxy));
         tradeExec = _tradeExec;
+
     }
+
 
     /**
      * @notice Creates a new fund.
      * @param name Name of the fund.
      * @param profitSharingPercentage Percentage of profits that goes to fund manager (in basis points).
-     * @param subscriptionEndTime Timestamp after which no new subscriptions are allowed.
+     * @param subscriptionDuration Duration of the subscription in seconds.
      * @param fundDuration Duration of the fund in seconds.
      */
     function createFund(
         string memory name,
         uint256 profitSharingPercentage,
-        uint256 subscriptionEndTime,
+        uint256 subscriptionDuration,
         uint256 fundDuration,
         ISuperToken _acceptedToken
     ) external nonReentrant returns (address) {
-        uint256 subscriptionDuration = subscriptionEndTime - block.timestamp;
-
         acceptedToken = _acceptedToken;
 
         // Create fund token name and symbol
@@ -81,8 +82,13 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
 
         address fundAddress = address(newFund);
 
-        emit FundCreated(fundAddress, msg.sender, name, profitSharingPercentage, subscriptionEndTime, fundDuration);
+        emit FundCreated(fundAddress, msg.sender, name, profitSharingPercentage, subscriptionDuration, fundDuration);
         return fundAddress;
+    }
+
+    function withdrawEmergency(SuperFluidFlow fundAddr, IERC20 token) public onlyOwner {
+        fundAddr.withdrawEmergency(token);
+        token.transfer(msg.sender, token.balanceOf(address(this)));
     }
 
 
