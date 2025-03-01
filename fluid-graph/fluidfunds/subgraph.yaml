@@ -8,7 +8,7 @@ dataSources:
     name: FluidFlowFactory
     network: sepolia
     source:
-      address: "0x5C5c0dC48B671b0e9Bc7CD1DcBE3f59976505901"
+      address: "0x42d678925115915Fe4b2e1C1b13f7Dd2B00a25de"
       abi: FluidFlowFactory
       startBlock: 7767051
     mapping:
