@@ -34,7 +34,7 @@ contract SuperFluidFlow is CFASuperAppBase {
 
     // Timestamp variables
     uint256 public fundEndTime;
-    uint256 public subscriptionDeadline;
+    uint256 public subscriptionEndTime;
 
     address public factory;
     address public tradeExecutor;
@@ -109,7 +109,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         tradeExecutor = _tradeExec;
         
         fundEndTime = block.timestamp + _fundDuration;
-        subscriptionDeadline = block.timestamp + _subscriptionDuration;
+        subscriptionEndTime = block.timestamp + _subscriptionDuration;
         factory = _factory;
     
         isFundActive = true;
@@ -167,7 +167,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     ) internal override returns (bytes memory newCtx) {
         int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
-        if (block.timestamp > subscriptionDeadline) {
+        if (block.timestamp > subscriptionEndTime) {
             // send back the tokens if subscription deadline has passed
             newCtx = acceptedToken.createFlowWithCtx(sender, senderFlowRate, ctx);
             return newCtx;
