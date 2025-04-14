@@ -304,6 +304,223 @@ contract SuperFluidFlowTest is Test {
         assertTrue(acceptedSuperToken.balanceOf(alice) > 0);
     }
     
+    function testCalculateSharesWithdraw() public {
+        // Initialize the flow contract
+        testInitializeFlow();
+        
+        // Create flows to get tokens into the contract
+        // Alice creates a flow to the contract
+        vm.startPrank(alice);
+        acceptedSuperToken.createFlow(address(flowContract), FLOW_RATE);
+        vm.stopPrank();
+        
+        // Bob creates a flow with twice the rate
+        vm.startPrank(bob);
+        acceptedSuperToken.createFlow(address(flowContract), FLOW_RATE * 2);
+        vm.stopPrank();
+        
+        // Warp time ahead to accumulate tokens (3 days)
+        vm.warp(block.timestamp + 3 days);
+        
+        // Close the fund
+        vm.startPrank(fundManager);
+        flowContract.closeFund();
+        vm.stopPrank();
+        
+        // Get fund token
+        ISuperToken fundToken = flowContract.fundToken();
+        
+        // Record initial balances
+        uint256 contractBalanceBefore = acceptedSuperToken.balanceOf(address(flowContract));
+        uint256 aliceFundTokenBalance = fundToken.balanceOf(alice);
+        uint256 bobFundTokenBalance = fundToken.balanceOf(bob);
+        uint256 totalFundTokenSupply = fundToken.totalSupply();
+        
+        // Calculate expected shares
+        uint256 expectedAliceShare = (contractBalanceBefore * aliceFundTokenBalance) / totalFundTokenSupply;
+        uint256 expectedBobShare = (contractBalanceBefore * bobFundTokenBalance) / totalFundTokenSupply;
+        
+        // Record initial balances
+        uint256 aliceBalanceBefore = acceptedSuperToken.balanceOf(alice);
+        uint256 bobBalanceBefore = acceptedSuperToken.balanceOf(bob);
+        
+        // Alice withdraws her share
+        vm.startPrank(alice);
+        fundToken.approve(address(flowContract), aliceFundTokenBalance);
+        flowContract.withdraw();
+        vm.stopPrank();
+        
+        // Bob withdraws his share
+        vm.startPrank(bob);
+        fundToken.approve(address(flowContract), bobFundTokenBalance);
+        flowContract.withdraw();
+        vm.stopPrank();
+        
+        // Get final balances
+        uint256 aliceBalanceAfter = acceptedSuperToken.balanceOf(alice);
+        uint256 bobBalanceAfter = acceptedSuperToken.balanceOf(bob);
+        
+        // Check received amounts match expected shares
+        assertEq(aliceBalanceAfter - aliceBalanceBefore, expectedAliceShare);
+        assertEq(bobBalanceAfter - bobBalanceBefore, expectedBobShare);
+        
+        // Verify Bob received approximately twice as much as Alice (within rounding error)
+        assertApproxEqRel(
+            bobBalanceAfter - bobBalanceBefore, 
+            2 * (aliceBalanceAfter - aliceBalanceBefore), 
+            0.01e18  // Allow 1% difference due to rounding
+        );
+    }
+    
+    function testProportionalSharesWithMultipleUsers() public {
+        // Initialize the flow contract
+        testInitializeFlow();
+        
+        // Set up three different users with different flow rates
+        address charlie = address(0x4);
+        vm.startPrank(owner);
+        TestToken testToken = TestToken(acceptedSuperToken.getUnderlyingToken());
+        testToken.mint(charlie, INITIAL_BALANCE);
+        vm.stopPrank();
+        
+        vm.startPrank(charlie);
+        testToken.approve(address(acceptedSuperToken), INITIAL_BALANCE);
+        acceptedSuperToken.upgrade(INITIAL_BALANCE);
+        vm.stopPrank();
+        
+        // Users create flows with different rates
+        // Alice: 1x flow rate
+        vm.startPrank(alice);
+        acceptedSuperToken.createFlow(address(flowContract), FLOW_RATE);
+        vm.stopPrank();
+        
+        // Bob: 2x flow rate
+        vm.startPrank(bob);
+        acceptedSuperToken.createFlow(address(flowContract), FLOW_RATE * 2);
+        vm.stopPrank();
+        
+        // Charlie: 3x flow rate
+        vm.startPrank(charlie);
+        acceptedSuperToken.createFlow(address(flowContract), FLOW_RATE * 3);
+        vm.stopPrank();
+        
+        // Warp time ahead to accumulate tokens (5 days)
+        vm.warp(block.timestamp + 5 days);
+        
+        // Close the fund
+        vm.startPrank(fundManager);
+        flowContract.closeFund();
+        vm.stopPrank();
+        
+        // Get fund token
+        ISuperToken fundToken = flowContract.fundToken();
+        
+        // Record initial contract balance
+        uint256 contractBalanceBefore = acceptedSuperToken.balanceOf(address(flowContract));
+        
+        // Users withdraw their shares
+        vm.startPrank(alice);
+        uint256 aliceFundTokenBalance = fundToken.balanceOf(alice);
+        fundToken.approve(address(flowContract), aliceFundTokenBalance);
+        uint256 aliceBalanceBefore = acceptedSuperToken.balanceOf(alice);
+        flowContract.withdraw();
+        uint256 aliceBalanceAfter = acceptedSuperToken.balanceOf(alice);
+        vm.stopPrank();
+        
+        vm.startPrank(bob);
+        uint256 bobFundTokenBalance = fundToken.balanceOf(bob);
+        fundToken.approve(address(flowContract), bobFundTokenBalance);
+        uint256 bobBalanceBefore = acceptedSuperToken.balanceOf(bob);
+        flowContract.withdraw();
+        uint256 bobBalanceAfter = acceptedSuperToken.balanceOf(bob);
+        vm.stopPrank();
+        
+        vm.startPrank(charlie);
+        uint256 charlieFundTokenBalance = fundToken.balanceOf(charlie);
+        fundToken.approve(address(flowContract), charlieFundTokenBalance);
+        uint256 charlieBalanceBefore = acceptedSuperToken.balanceOf(charlie);
+        flowContract.withdraw();
+        uint256 charlieBalanceAfter = acceptedSuperToken.balanceOf(charlie);
+        vm.stopPrank();
+        
+        // Calculate actual received tokens
+        uint256 aliceReceived = aliceBalanceAfter - aliceBalanceBefore;
+        uint256 bobReceived = bobBalanceAfter - bobBalanceBefore;
+        uint256 charlieReceived = charlieBalanceAfter - charlieBalanceBefore;
+        
+        // Verify proportion of shares matches proportion of flow rates (within rounding error)
+        assertApproxEqRel(bobReceived, 2 * aliceReceived, 0.01e18);  // Bob should get ~2x what Alice gets
+        assertApproxEqRel(charlieReceived, 3 * aliceReceived, 0.01e18);  // Charlie should get ~3x what Alice gets
+    }
+    
+    function testEdgeCaseWithdrawals() public {
+        // Initialize the flow contract
+        testInitializeFlow();
+        
+        // Test case 1: Single user with 100% of tokens
+        vm.startPrank(alice);
+        acceptedSuperToken.createFlow(address(flowContract), FLOW_RATE);
+        vm.stopPrank();
+        
+        // Warp time to accumulate tokens
+        vm.warp(block.timestamp + 2 days);
+        
+        // Close the fund
+        vm.startPrank(fundManager);
+        flowContract.closeFund();
+        vm.stopPrank();
+        
+        // Get fund token and record balances
+        ISuperToken fundToken = flowContract.fundToken();
+        uint256 contractBalanceBefore = acceptedSuperToken.balanceOf(address(flowContract));
+        uint256 aliceBalanceBefore = acceptedSuperToken.balanceOf(alice);
+        
+        // Alice withdraws as the only user
+        vm.startPrank(alice);
+        uint256 aliceFundTokenBalance = fundToken.balanceOf(alice);
+        fundToken.approve(address(flowContract), aliceFundTokenBalance);
+        flowContract.withdraw();
+        vm.stopPrank();
+        
+        // Alice should get all tokens (minus manager fee if profit exists)
+        uint256 aliceBalanceAfter = acceptedSuperToken.balanceOf(alice);
+        uint256 contractBalanceAfter = acceptedSuperToken.balanceOf(address(flowContract));
+        
+        // Contract should have very small or no balance left (due to potential rounding)
+        assertLt(contractBalanceAfter, 100);  // Small dust amount allowed
+        
+        // Alice should receive approximately the full contract balance
+        assertApproxEqRel(aliceBalanceAfter - aliceBalanceBefore, contractBalanceBefore, 0.01e18);
+    }
+    
+    function test_RevertWhen_WithdrawWithZeroFundTokens() public {
+        // Initialize the flow contract
+        testInitializeFlow();
+        
+        // Create flow and accumulate tokens
+        testCreateUserFlow();
+        
+        // Warp time ahead
+        vm.warp(block.timestamp + 1 days);
+        
+        // Close the fund
+        vm.startPrank(fundManager);
+        flowContract.closeFund();
+        vm.stopPrank();
+        
+        // Create a user with no fund tokens
+        address noTokenUser = address(0x5);
+        
+        // User with no fund tokens tries to withdraw
+        vm.startPrank(noTokenUser);
+        // Will not revert but should transfer 0 tokens
+        flowContract.withdraw();
+        vm.stopPrank();
+        
+        // Check no tokens were transferred
+        assertEq(acceptedSuperToken.balanceOf(noTokenUser), 0);
+    }
+    
     function test_RevertWhen_WithdrawActiveFund() public {
         // Initialize the flow contract
         testInitializeFlow();

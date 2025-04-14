@@ -282,8 +282,8 @@ contract SuperFluidFlow is CFASuperAppBase {
             // Calculate profit (if any)
             if (currentBalance > totalStreamed) {
                 uint256 profitInUSD = currentBalance - totalStreamed;
-                // Fund manager gets 10% of profits
-                uint256 managerShare = (profitInUSD * 10) / 100;
+                // Fund manager gets 10% of profits (1000 basis points)
+                uint256 managerShare = (profitInUSD * 1000) / 10000;
                 
                 // Transfer manager's share
                 acceptedToken.transfer(fundManager, managerShare);
