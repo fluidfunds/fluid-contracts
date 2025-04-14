@@ -301,9 +301,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 userFundTokenBalance = fundToken.balanceOf(msg.sender);
 
         // Calculate user's proportional share of the total assets
-        uint256 totalFundTokenSupply = fundToken.totalSupply();
         uint256 contractBalance = acceptedToken.balanceOf(address(this));
-        uint256 userShare = (contractBalance * userFundTokenBalance) / totalFundTokenSupply;
+        uint256 userShare = (contractBalance * userFundTokenBalance) / totalStreamed;
 
         // Burn the user's fund tokens
         fundToken.transferFrom(msg.sender, address(this), userFundTokenBalance);

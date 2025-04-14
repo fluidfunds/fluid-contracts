@@ -7,6 +7,7 @@ import {ISuperfluid, ISuperToken, ISuperApp, SuperAppDefinitions, ISuperTokenFac
 import {ERC1820RegistryCompiled} from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC1820RegistryCompiled.sol";
 import {TestToken} from "@superfluid-finance/ethereum-contracts/contracts/utils/TestToken.sol";
 import {SuperToken} from "@superfluid-finance/ethereum-contracts/contracts/superfluid/SuperToken.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../src/SuperFluidFlow.sol";
 import "../src/interfaces/ITradeExecutor.sol";
 
@@ -35,57 +36,6 @@ contract MockTradeExecutor is ITradeExecutor {
     
     function whitelistedTokens(address token) external view override returns (bool) {
         return _whitelistedTokens[token];
-    }
-}
-
-contract MockERC20 is IERC20 {
-    string public name;
-    string public symbol;
-    uint8 public decimals = 18;
-    uint256 public totalSupply;
-    mapping(address => uint256) public balances;
-    mapping(address => mapping(address => uint256)) public allowances;
-
-    constructor(string memory _name, string memory _symbol) {
-        name = _name;
-        symbol = _symbol;
-        _mint(msg.sender, 1000000 * 10**decimals);
-    }
-
-    function mint(address to, uint256 amount) public {
-        _mint(to, amount);
-    }
-
-    function _mint(address to, uint256 amount) internal {
-        balances[to] += amount;
-        totalSupply += amount;
-    }
-
-    function balanceOf(address account) public view override returns (uint256) {
-        return balances[account];
-    }
-
-    function transfer(address to, uint256 amount) public override returns (bool) {
-        balances[msg.sender] -= amount;
-        balances[to] += amount;
-        return true;
-    }
-
-    function allowance(address owner, address spender) public view override returns (uint256) {
-        return allowances[owner][spender];
-    }
-
-    function approve(address spender, uint256 amount) public override returns (bool) {
-        allowances[msg.sender][spender] = amount;
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
-        require(allowances[from][msg.sender] >= amount, "Insufficient allowance");
-        allowances[from][msg.sender] -= amount;
-        balances[from] -= amount;
-        balances[to] += amount;
-        return true;
     }
 }
 
@@ -321,6 +271,15 @@ contract SuperFluidFlowTest is Test {
         
         // Warp time ahead to accumulate tokens (3 days)
         vm.warp(block.timestamp + 3 days);
+
+        vm.startPrank(alice);
+        acceptedSuperToken.deleteFlow(alice, address(flowContract));
+        vm.stopPrank();
+        
+        // Bob deletes his flow
+        vm.startPrank(bob);
+        acceptedSuperToken.deleteFlow(bob, address(flowContract));
+        vm.stopPrank();
         
         // Close the fund
         vm.startPrank(fundManager);
@@ -373,10 +332,8 @@ contract SuperFluidFlowTest is Test {
     }
     
     function testProportionalSharesWithMultipleUsers() public {
-        // Initialize the flow contract
         testInitializeFlow();
         
-        // Set up three different users with different flow rates
         address charlie = address(0x4);
         vm.startPrank(owner);
         TestToken testToken = TestToken(acceptedSuperToken.getUnderlyingToken());
@@ -451,6 +408,9 @@ contract SuperFluidFlowTest is Test {
         // Verify proportion of shares matches proportion of flow rates (within rounding error)
         assertApproxEqRel(bobReceived, 2 * aliceReceived, 0.01e18);  // Bob should get ~2x what Alice gets
         assertApproxEqRel(charlieReceived, 3 * aliceReceived, 0.01e18);  // Charlie should get ~3x what Alice gets
+
+        // Check that the contract has no balance left
+        assertEq(acceptedSuperToken.balanceOf(address(flowContract)), 0);
     }
     
     function testEdgeCaseWithdrawals() public {
@@ -463,7 +423,11 @@ contract SuperFluidFlowTest is Test {
         vm.stopPrank();
         
         // Warp time to accumulate tokens
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(block.timestamp + 30 days);
+
+        vm.startPrank(alice);
+        acceptedSuperToken.deleteFlow(alice, address(flowContract));
+        vm.stopPrank();
         
         // Close the fund
         vm.startPrank(fundManager);
@@ -474,6 +438,7 @@ contract SuperFluidFlowTest is Test {
         ISuperToken fundToken = flowContract.fundToken();
         uint256 contractBalanceBefore = acceptedSuperToken.balanceOf(address(flowContract));
         uint256 aliceBalanceBefore = acceptedSuperToken.balanceOf(alice);
+
         
         // Alice withdraws as the only user
         vm.startPrank(alice);
@@ -600,7 +565,7 @@ contract SuperFluidFlowTest is Test {
         testInitializeFlow();
         
         // Create a mock token and send it to the contract
-        MockERC20 mockToken = new MockERC20("Mock", "MCK");
+        IERC20 mockToken = new ERC20("Mock", "MCK");
         mockToken.transfer(address(flowContract), 100 * 10**18);
         
         // Owner performs emergency withdrawal
@@ -617,7 +582,7 @@ contract SuperFluidFlowTest is Test {
         testInitializeFlow();
         
         // Create a mock token and send it to the contract
-        MockERC20 mockToken = new MockERC20("Mock", "MCK");
+        IERC20 mockToken = new ERC20("Mock", "MCK");
         mockToken.transfer(address(flowContract), 100 * 10**18);
         
         // Non-owner tries to perform emergency withdrawal
@@ -625,5 +590,64 @@ contract SuperFluidFlowTest is Test {
         vm.expectRevert(OnlyOwner.selector);
         flowContract.withdrawEmergency(IERC20(address(mockToken)));
         vm.stopPrank();
+    }
+
+    function testSingleUserScenario() public {
+        // Initialize the flow contract
+        testInitializeFlow();
+        
+        // Record initial balance
+        uint256 aliceInitialBalance = acceptedSuperToken.balanceOf(alice);
+        
+        // Alice creates a flow to the contract
+        vm.startPrank(alice);
+        acceptedSuperToken.createFlow(address(flowContract), FLOW_RATE);
+        vm.stopPrank();
+        
+        // Verify flow is created correctly
+        assertEq(acceptedSuperToken.getFlowRate(alice, address(flowContract)), FLOW_RATE);
+        
+        // Get fund token and verify fund token flow
+        ISuperToken fundToken = flowContract.fundToken();
+        assertEq(fundToken.getFlowRate(address(flowContract), alice), FLOW_RATE);
+        
+        // Let time pass to accumulate tokens (30 days)
+        vm.warp(block.timestamp + 30 days);
+        
+        // Record accumulated balances
+        uint256 contractBalance = acceptedSuperToken.balanceOf(address(flowContract));
+        uint256 aliceFundTokenBalance = fundToken.balanceOf(alice);
+
+        
+        // Alice stops her flow
+        vm.startPrank(alice);
+        acceptedSuperToken.deleteFlow(alice, address(flowContract));
+        vm.stopPrank();
+        
+        assertEq(contractBalance, aliceFundTokenBalance);
+        // Verify flows are stopped
+        assertEq(acceptedSuperToken.getFlowRate(alice, address(flowContract)), 0);
+        assertEq(fundToken.getFlowRate(address(flowContract), alice), 0);
+        
+        // Close the fund
+        vm.startPrank(fundManager);
+        flowContract.closeFund();
+        vm.stopPrank();
+        
+        // Alice withdraws her funds
+        vm.startPrank(alice);
+        fundToken.approve(address(flowContract), aliceFundTokenBalance);
+        flowContract.withdraw();
+        vm.stopPrank();
+        
+        // Verify final state
+        uint256 aliceFinalBalance = acceptedSuperToken.balanceOf(alice);
+        uint256 contractFinalBalance = acceptedSuperToken.balanceOf(address(flowContract));
+        
+        // Contract should have very small or no balance left
+        assertLt(contractFinalBalance, 100); // Allow for small dust amount
+        
+
+        assertEq(aliceInitialBalance, aliceFinalBalance);
     }
 }
