@@ -40,6 +40,8 @@ contract SuperFluidFlow is CFASuperAppBase {
     address public tradeExecutor;
     ISuperfluid public host;
 
+    uint256 public fundClosedTimestamp;
+
     // Update event to include all relevant trade data
     event TradeExecuted(
         address indexed tokenIn, 
@@ -60,6 +62,9 @@ contract SuperFluidFlow is CFASuperAppBase {
         if (msg.sender != fundManager) revert OnlyFundManager();
         _;
     }
+
+
+    // 
 
 
     // --------------------
@@ -226,7 +231,13 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 lastUpdated,
         bytes calldata ctx
     ) internal override returns (bytes memory newCtx) {
-        uint256 timeElapsed = block.timestamp - lastUpdated;
+        uint256 timeElapsed;
+        if (isFundActive) {
+            timeElapsed = fundClosedTimestamp - lastUpdated;
+        } else {
+            timeElapsed = block.timestamp - lastUpdated;
+        }
+
         totalStreamed += uint256(uint96(previousFlowRate)) * timeElapsed;
 
         // Delete fund token stream to the sender
@@ -276,8 +287,6 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         if (isFundActive){
             uint256 currentBalance = acceptedToken.balanceOf(address(this));
-        
-            isFundActive = false;
 
             // Calculate profit (if any)
             if (currentBalance > totalStreamed) {
@@ -289,6 +298,10 @@ contract SuperFluidFlow is CFASuperAppBase {
                 acceptedToken.transfer(fundManager, managerShare);
             }
 
+            isFundActive = false;
+
+            fundClosedTimestamp = block.timestamp;
+
             emit FundClosed();
         }
     
@@ -297,12 +310,31 @@ contract SuperFluidFlow is CFASuperAppBase {
 
     function withdraw() external {
         if (isFundActive) revert FundStillActive();
+
+        // TODO: check user stream should not be running
+        // TODO: No stream should be active while anyone withdraws
+
+        // fund active
+        // stream souvik active
+        // stream shreyas active
+        // fund closed -> timestamp
+        // streams still active
+        // stream close
+        // stream started by zubin -> usdc -> usdc
+        // stream close -> timestamp 
+
+        // TODO: from our contract no outward stream of fundTokens be active
         
         uint256 userFundTokenBalance = fundToken.balanceOf(msg.sender);
 
+        // fund balance = 300
+        // (300 * 100) / 200
+
         // Calculate user's proportional share of the total assets
         uint256 contractBalance = acceptedToken.balanceOf(address(this));
-        uint256 userShare = (contractBalance * userFundTokenBalance) / totalStreamed;
+        uint256 userShare = (contractBalance * userFundTokenBalance * 1000) / (totalStreamed * 1000);
+
+        totalStreamed -= usershare
 
         // Burn the user's fund tokens
         fundToken.transferFrom(msg.sender, address(this), userFundTokenBalance);
