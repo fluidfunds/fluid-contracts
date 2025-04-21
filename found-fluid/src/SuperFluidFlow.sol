@@ -11,6 +11,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./PureSuperToken.sol";
 import "./interfaces/ITradeExecutor.sol";
+import "./interfaces/IFluidFlowStorage.sol";
 
 contract SuperFluidFlow is CFASuperAppBase {
     using SuperTokenV1Library for ISuperToken;
@@ -27,6 +28,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     ISuperToken public acceptedToken;
     address public fundManager;
     ISuperToken public fundToken;
+    IFluidFlowStorage public fundStorage;
 
     uint256 public totalStreamed;
 
@@ -104,7 +106,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         address _factory,
         string memory _fundTokenName,
         string memory _fundTokenSymbol,
-        address _tradeExec
+        address _tradeExec,
+        IFluidFlowStorage _fundStorage
     ) external {
         if (msg.sender != owner) revert OnlyOwner();
         if (_fundDuration <= _subscriptionDuration) revert FundDurationTooShort();
@@ -112,6 +115,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         acceptedToken = _acceptedToken;
         fundManager = _fundManager;
         tradeExecutor = _tradeExec;
+        fundStorage = _fundStorage;
         
         fundEndTime = block.timestamp + _fundDuration;
         subscriptionEndTime = block.timestamp + _subscriptionDuration;
@@ -334,7 +338,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 contractBalance = acceptedToken.balanceOf(address(this));
         uint256 userShare = (contractBalance * userFundTokenBalance * 1000) / (totalStreamed * 1000);
 
-        totalStreamed -= usershare
+        totalStreamed -= userShare;
 
         // Burn the user's fund tokens
         fundToken.transferFrom(msg.sender, address(this), userFundTokenBalance);

@@ -8,6 +8,9 @@ import { ISuperToken } from "@superfluid-finance/ethereum-contracts/contracts/in
 import { ISuperfluid } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import { ISuperTokenFactory } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperTokenFactory.sol";
 import "./PureSuperToken.sol";
+import "./interfaces/IFluidFlowStorage.sol";
+import "./interfaces/IFluidFlowStorageFactory.sol";
+// import "./FluidFlowStorageFactory.sol"; // concrete factory removed, using injected interface
 
 contract FluidFlowFactory is Ownable, ReentrancyGuard {
     // Events
@@ -20,9 +23,10 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
 
     ISuperToken public acceptedToken;
     address public tradeExec;
+    IFluidFlowStorageFactory public storageFactory;
 
 
-    constructor(ISuperfluid _host, address _tradeExec) {
+    constructor(ISuperfluid _host, address _tradeExec, IFluidFlowStorageFactory _storageFactory) {
         // Deploy new PureSuperTokenProxy for the accepted token
         PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
         
@@ -41,7 +45,9 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         
         acceptedToken = ISuperToken(address(tokenProxy));
         tradeExec = _tradeExec;
-
+        
+        // Set the storage factory
+        storageFactory = _storageFactory;
     }
 
 
@@ -68,6 +74,12 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         SuperFluidFlow newFund = new SuperFluidFlow(
             ISuperfluid(acceptedToken.getHost())
         );
+        
+        // Get address of new fund
+        address fundAddress = address(newFund);
+        
+        // Create storage for this fund using the factory
+        address storageAddress = storageFactory.createStorage(fundAddress);
 
         newFund.initialize(
             acceptedToken,
@@ -77,10 +89,9 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
             address(this), // factory address
             fundTokenName,
             fundTokenSymbol,
-            tradeExec
+            tradeExec,
+            IFluidFlowStorage(storageAddress)
         );
-
-        address fundAddress = address(newFund);
 
         emit FundCreated(fundAddress, msg.sender, name, profitSharingPercentage, subscriptionDuration, fundDuration);
         return fundAddress;
@@ -90,7 +101,4 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         fundAddr.withdrawEmergency(token);
         token.transfer(msg.sender, token.balanceOf(address(this)));
     }
-
-
 }
-
