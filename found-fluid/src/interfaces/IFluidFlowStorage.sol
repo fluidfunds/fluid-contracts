@@ -9,76 +9,38 @@ import {ISuperfluid, ISuperToken} from "@superfluid-finance/ethereum-contracts/c
  */
 interface IFluidFlowStorage {
     // Structs
-    struct Trade {
-        address tokenIn;
-        address tokenOut;
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 timestamp;
-        bool isOpen;
+    struct UserFlow {
+        uint256 startTimestamp;            // When the flow was created
+        int96 flowRate;                   // Flow rate per second
+        uint256 totalStreamedAmount;     // When the user updates the flowrate, we are storing the total streamed value here and changing the flowrate
+        address userAddress;            // User's address
+        ISuperToken token;              // Token being streamed
     }
     
     // Events
-    event UserLiquidated(address indexed user, uint256 tokenBalance, uint256 amountTaken);
-    event PositionClosed(uint256 positionId);
     event FundClosed();
-    event FundInitialized(
-        ISuperToken acceptedToken, 
-        address fundManager,
-        uint256 fundDuration,
-        uint256 subscriptionDuration,
-        address factory
-    );
-    event UserWithdrawn(address indexed user, uint256 fundTokensRedeemed, uint256 amountReceived);
-    event TradeExecuted(
-        address indexed tokenIn, 
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 timestamp,
-        bool isOpen
-    );
     
     // View functions
-    function owner() external view returns (address);
-    function fundManager() external view returns (address);
-    function factory() external view returns (address);
-    function tradeExecutor() external view returns (address);
-    function host() external view returns (ISuperfluid);
-    function acceptedToken() external view returns (ISuperToken);
-    function fundToken() external view returns (ISuperToken);
-    function isFundActive() external view returns (bool);
-    function totalStreamed() external view returns (uint256);
+    function userFlows(address user) external view returns (UserFlow memory);
+    function fundAddress() external view returns (address);
+    function fundClosedTime() external view returns (uint256);
+    function isFundClosed() external view returns (bool);
     function fundEndTime() external view returns (uint256);
-    function subscriptionEndTime() external view returns (uint256);
-    function fundClosedTimestamp() external view returns (uint256);
-    function userDeposits(address user) external view returns (uint256);
-    function userFlowRates(address user) external view returns (int96);
-    function trades(uint256 index) external view returns (Trade memory);
-    function getTradesCount() external view returns (uint256);
+    function getTotalStreamed(address _user) external view returns (uint256);
+    function isUserStreamActive(address userAddress) external view returns (bool);
     
     // State changing functions
-    function initialize(
-        ISuperfluid _host,
-        ISuperToken _acceptedToken,
-        ISuperToken _fundToken,
-        address _fundManager,
-        uint256 _fundDuration,
-        uint256 _subscriptionDuration,
-        address _tradeExecutor
-    ) external;
+    function initialize(address _fundAddress, uint256 _fundEndTime) external;
     
-    function addTrade(
-        address _tokenIn,
-        address _tokenOut,
-        uint256 _amountIn,
-        uint256 _amountOut,
-        bool _isOpen
-    ) external;
+    function flowCreated(address _user, int96 _flowRate, ISuperToken _token) external;
     
-    function setFundInactive() external;
-    function updateUserFlowRate(address user, int96 flowRate) external;
-    function incrementTotalStreamed(uint256 amount) external;
-    function decrementTotalStreamed(uint256 amount) external;
-    function updateUserDeposit(address user, uint256 amount) external;
-} 
+    function flowUpdated(address _user, int96 _newFlowRate) external;
+    
+    function flowDeleted(address _user) external returns (uint256 excessAmount);
+    
+    function setFundClosedTime(uint256 _time) external;
+
+    function isUserWithdrawn(address userAddress) external view returns (bool);
+    
+    function userWithdrawn(address userAddress) external;
+}

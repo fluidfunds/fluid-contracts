@@ -10,7 +10,6 @@ import { ISuperTokenFactory } from "@superfluid-finance/ethereum-contracts/contr
 import "./PureSuperToken.sol";
 import "./interfaces/IFluidFlowStorage.sol";
 import "./interfaces/IFluidFlowStorageFactory.sol";
-// import "./FluidFlowStorageFactory.sol"; // concrete factory removed, using injected interface
 
 contract FluidFlowFactory is Ownable, ReentrancyGuard {
     // Events
@@ -26,6 +25,13 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
     IFluidFlowStorageFactory public storageFactory;
 
 
+    /**
+     * @dev Initialize the contract with necessary components
+     * @notice This can only be called once during deployment
+     * @param _host SuperFluid host contract address
+     * @param _tradeExec Address of the trade executor contract
+     * @param _storageFactory Address of the storage factory contract
+     */
     constructor(ISuperfluid _host, address _tradeExec, IFluidFlowStorageFactory _storageFactory) {
         // Deploy new PureSuperTokenProxy for the accepted token
         PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
@@ -79,7 +85,7 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         address fundAddress = address(newFund);
         
         // Create storage for this fund using the factory
-        address storageAddress = storageFactory.createStorage(fundAddress);
+        address storageAddress = storageFactory.createStorage(fundAddress, block.timestamp + fundDuration);
 
         newFund.initialize(
             acceptedToken,
@@ -97,6 +103,12 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         return fundAddress;
     }
 
+    /**
+     * @dev Allows the owner to withdraw any ERC20 token from a fund in case of emergency
+     * @notice This is a safety function that can only be called by the owner
+     * @param fundAddr Address of the SuperFluidFlow fund to withdraw from
+     * @param token Address of the ERC20 token to withdraw
+     */
     function withdrawEmergency(SuperFluidFlow fundAddr, IERC20 token) public onlyOwner {
         fundAddr.withdrawEmergency(token);
         token.transfer(msg.sender, token.balanceOf(address(this)));

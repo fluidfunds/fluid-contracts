@@ -23,6 +23,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     error SubscriptionPeriodEnded();
     // error TradingPeriodEnded();
     error FundStillActive();
+    error UserStreamActive();
  
     address public owner;
     ISuperToken public acceptedToken;
@@ -31,6 +32,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     IFluidFlowStorage public fundStorage;
 
     uint256 public totalStreamed;
+    uint256 public totalFundTokensUsed;
 
     bool public isFundActive;
 
@@ -65,9 +67,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         _;
     }
 
-
-
-
     // --------------------
     // Event Declarations
     // --------------------
@@ -85,6 +84,11 @@ contract SuperFluidFlow is CFASuperAppBase {
 
     event UserWithdrawn(address indexed user, uint256 fundTokensRedeemed, uint256 amountReceived);
 
+    /**
+     * @dev Initialize the contract with the SuperFluid host
+     * @notice This can only be called once during deployment
+     * @param _host Address of the SuperFluid host
+     */
     constructor(ISuperfluid _host) CFASuperAppBase(_host) {
         owner = msg.sender;
         host = _host;
@@ -92,11 +96,29 @@ contract SuperFluidFlow is CFASuperAppBase {
         _host.registerApp(getConfigWord(true, true, true));
     }
 
+    /**
+     * @dev Allows the owner to withdraw any ERC20 token in case of emergency
+     * @notice This is a safety function only for the alpha version
+     * @param _addr Address of the ERC20 token to withdraw
+     */
     function withdrawEmergency(IERC20 _addr) external onlyOwner {
         // allow protocol admin to withdraw in emergencies - only for the alpha version
         _addr.transfer(msg.sender, _addr.balanceOf(address(this)));
     }
 
+    /**
+     * @dev Initialize the contract with fund parameters
+     * @notice This can only be called once after deployment
+     * @param _acceptedToken The SuperToken accepted for deposits
+     * @param _fundManager Address of the fund manager
+     * @param _fundDuration Duration of the fund in seconds
+     * @param _subscriptionDuration Duration of the subscription period in seconds
+     * @param _factory Address of the factory that created this fund
+     * @param _fundTokenName Name of the fund token
+     * @param _fundTokenSymbol Symbol of the fund token
+     * @param _tradeExec Address of the trade executor
+     * @param _fundStorage Address of the fund storage contract
+     */
     function initialize(
         ISuperToken _acceptedToken, 
         address _fundManager,
@@ -116,26 +138,27 @@ contract SuperFluidFlow is CFASuperAppBase {
         tradeExecutor = _tradeExec;
         fundStorage = _fundStorage;
         
-        fundEndTime = block.timestamp + _fundDuration;
+        // Calculate end times
         subscriptionEndTime = block.timestamp + _subscriptionDuration;
+        fundEndTime = block.timestamp + _fundDuration;
+        
+        // Initialize state variables
         factory = _factory;
-    
         isFundActive = true;
-
-        // Deploy new PureSuperTokenProxy
+        
+        // Create a pure super token for fund shares
         PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
         
         // Get SuperToken factory from host
         ISuperTokenFactory superTokenFactory = ISuperTokenFactory(host.getSuperTokenFactory());
         
-        // Initialize the token with 1 billion units (assuming 18 decimals)
-        uint256 initialSupply = 1_000_000_000 * 1e18;
+        // Initialize the fund token with zero initial supply (minted as people deposit)
         tokenProxy.initialize(
             superTokenFactory,
             _fundTokenName,
             _fundTokenSymbol,
-            address(this),
-            initialSupply
+            address(this), // Fund contract owns the tokens initially
+            0 // No initial supply
         );
         
         fundToken = ISuperToken(address(tokenProxy));
@@ -153,6 +176,12 @@ contract SuperFluidFlow is CFASuperAppBase {
 
 
 
+    /**
+     * @dev Checks if a token is the accepted SuperToken for this fund
+     * @notice Implements the CFASuperAppBase interface
+     * @param superToken The token to check
+     * @return True if the token is the accepted token, false otherwise
+     */
     function isAcceptedSuperToken(ISuperToken superToken) public view override returns (bool) {
         return superToken == acceptedToken;
     }
@@ -199,21 +228,17 @@ contract SuperFluidFlow is CFASuperAppBase {
      * @return bytes Returns the updated context.
      */
     function onFlowUpdated(
-        ISuperToken superToken,
+        ISuperToken /*superToken*/,
         address sender,
-        int96 previousflowRate,
-        uint256 lastUpdated,
+        int96 /*previousflowRate*/,
+        uint256 /*lastUpdated*/,
         bytes calldata ctx
-    ) internal override returns (bytes memory newCtx) {
-        uint256 timeElapsed = block.timestamp - lastUpdated;
-        totalStreamed += uint256(uint96(previousflowRate)) * timeElapsed;
-
-        int96 currentFlowRate = superToken.getFlowRate(sender, address(this));
-        
-        fundStorage.flowUpdated(sender, currentFlowRate, acceptedToken);
+    ) internal override returns (bytes memory newCtx) {      
+        int96 currentFlowRate = acceptedToken.getFlowRate(sender, address(this));  
+        fundStorage.flowUpdated(sender, currentFlowRate);
 
         // Update fund token stream to the sender
-        newCtx = fundToken.updateFlowWithCtx(sender, currentFlowRate);
+        newCtx = fundToken.updateFlowWithCtx(sender, currentFlowRate, ctx);
         // No flow event emitted per your request
         return newCtx;
 
@@ -230,20 +255,35 @@ contract SuperFluidFlow is CFASuperAppBase {
         ISuperToken /*superToken*/,
         address sender,
         address /*receiver*/,
-        int96 previousFlowRate,
-        uint256 lastUpdated,
+        int96 /* previousFlowRate */,
+        uint256 /* lastUpdated */,
         bytes calldata ctx
     ) internal override returns (bytes memory newCtx) {
 
-        fundStorage.flowDeleted(sender);
+        // Get excess amount from storage contract that should be returned to the user
+        uint256 excessStreamedAmount = fundStorage.flowDeleted(sender);
 
         // Delete fund token stream to the sender
         newCtx = fundToken.deleteFlowWithCtx(address(this), sender, ctx);
+
+        if (excessStreamedAmount > 0) {
+            acceptedToken.transfer(sender, excessStreamedAmount);
+        }
+
         return newCtx;
 
     }
 
 
+    /**
+     * @dev Executes a trade through the trade executor
+     * @notice Can only be called by the fund manager
+     * @param tokenIn Address of the token to sell
+     * @param tokenOut Address of the token to buy
+     * @param amountIn Amount of input token to swap
+     * @param minAmountOut Minimum amount of output tokens expected
+     * @param poolFee Fee tier of the pool to use for the swap
+     */
     function executeTrade(
         address tokenIn,
         address tokenOut, 
@@ -275,7 +315,14 @@ contract SuperFluidFlow is CFASuperAppBase {
         );
     }
 
-    function closeFund() public onlyFundManager {
+    /**
+     * @dev Closes the fund and distributes manager profits
+     * @notice Can only be called by the fund manager
+     */
+    function closeFund() public {
+        if (block.timestamp < fundEndTime) {
+            revert OnlyFundManager();
+        }
         IERC20 underlayingAcceptedToken = IERC20(acceptedToken.getUnderlyingToken());
         uint256 balance = underlayingAcceptedToken.balanceOf(address(this));
         underlayingAcceptedToken.approve(address(acceptedToken), balance);
@@ -284,10 +331,11 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         if (isFundActive){
             uint256 currentBalance = acceptedToken.balanceOf(address(this));
+            totalFundTokensUsed = (1_000_000_000 * 1e18) - fundToken.balanceOf(address(this));
 
             // Calculate profit (if any)
-            if (currentBalance > totalStreamed) {
-                uint256 profitInUSD = currentBalance - totalStreamed;
+            if (currentBalance > totalFundTokensUsed) {
+                uint256 profitInUSD = currentBalance - totalFundTokensUsed;
                 // Fund manager gets 10% of profits (1000 basis points)
                 uint256 managerShare = (profitInUSD * 1000) / 10000;
                 
@@ -305,40 +353,33 @@ contract SuperFluidFlow is CFASuperAppBase {
     }
 
 
+    /**
+     * @dev Allows users to withdraw their proportional share after fund closure
+     * @notice Can only be called after the fund is closed
+     */
     function withdraw() external {
         if (isFundActive) revert FundStillActive();
 
-        // TODO: check user stream should not be running
-        // TODO: No stream should be active while anyone withdraws
+        // check user stream should not be running
+        if (fundStorage.isUserStreamActive(msg.sender)) revert UserStreamActive();
 
-        // fund active
-        // stream souvik active
-        // stream shreyas active
-        // fund closed -> timestamp
-        // streams still active
-        // stream close
-        // stream started by zubin -> usdc -> usdc
-        // stream close -> timestamp 
+        // check user has not withdrawn
+        if (fundStorage.isUserWithdrawn(msg.sender)) revert UserAlreadyWithdrawn();
 
-        // TODO: from our contract no outward stream of fundTokens be active
-        
-        uint256 userFundTokenBalance = fundToken.balanceOf(msg.sender);
-
-        // fund balance = 300
-        // (300 * 100) / 200
+        uint256 userTotalStreamed = fundStorage.getTotalStreamed(msg.sender);
 
         // Calculate user's proportional share of the total assets
-        uint256 contractBalance = acceptedToken.balanceOf(address(this));
-        uint256 userShare = (contractBalance * userFundTokenBalance * 1000) / (totalStreamed * 1000);
-
-        totalStreamed -= userShare;
-
-        // Burn the user's fund tokens
-        fundToken.transferFrom(msg.sender, address(this), userFundTokenBalance);
+        uint256 userShare = (totalFundTokensUsed * userTotalStreamed * 1000) / (userTotalStreamed * 1000);
 
         // Transfer the proportional share of accepted tokens to the user
         acceptedToken.transfer(msg.sender, userShare);
 
-        emit UserWithdrawn(msg.sender, userFundTokenBalance, userShare);
+        // Mark user as withdrawn
+        fundStorage.userWithdrawn(msg.sender);
+
+        emit UserWithdrawn(msg.sender, userTotalStreamed, userShare);
     }
+
+
+    error UserAlreadyWithdrawn();
 }

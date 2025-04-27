@@ -11,7 +11,7 @@ interface IFluidFlowStorageFactory {
      * @param fundAddress The address of the fund
      * @return The address of the created storage contract
      */
-    function createStorage(address fundAddress) external returns (address);
+    function createStorage(address fundAddress, uint256 _fundEndTime) external returns (address);
 
     /**
      * @notice Returns total number of storage contracts created

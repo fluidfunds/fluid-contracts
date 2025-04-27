@@ -15,6 +15,7 @@ contract FluidFlowStorage {
         uint256 totalStreamedAmount;     // When the user updates the flowrate, we are storing the total streamed value here and chnaging the flowrate
         address userAddress;            // User's address
         ISuperToken token;              // Token being streamed
+        bool userWithdrawn;             // Whether the user has withdrawn their funds
     }
 
     // Mapping from user address to their flow data
@@ -24,7 +25,12 @@ contract FluidFlowStorage {
     address public fundAddress;
 
     // fund closed timestamp
-    uint256 public fundClosedTime;
+    uint256 public fundClosedTime; // when the fund was closed, this can be 0 if the fund is still active
+
+    // is fund closed
+    bool public isFundClosed; // true when the fund is closed
+
+    uint256 public fundEndTime; // when the fund will end
     
     /**
      * @dev Modifier to restrict function access to only the fund address
@@ -36,16 +42,21 @@ contract FluidFlowStorage {
     
     /**
      * @dev Initialize the contract with the fund address
+     * @notice This can only be called once during deployment
      * @param _fundAddress Address of the fund
-     */
-    function initialize(address _fundAddress) external {
+     * @param _fundEndTime When the fund will end
+     */ 
+    function initialize(address _fundAddress, uint256 _fundEndTime) external {
         require(fundAddress == address(0), "Already initialized");
         require(_fundAddress != address(0), "Invalid fund address");
         fundAddress = _fundAddress;
+        isFundClosed = false;
+        fundEndTime = _fundEndTime;
     }
 
     /**
      * @dev Called when a user creates a new flow
+     * @notice This can only be called by the fund address
      * @param _user User address
      * @param _flowRate Flow rate per second
      * @param _token Super token being streamed
@@ -56,12 +67,14 @@ contract FluidFlowStorage {
             flowRate: _flowRate,
             totalStreamedAmount: 0,
             userAddress: _user,
-            token: _token
+            token: _token,
+            userWithdrawn: false
         });
     }
     
     /**
      * @dev Called when a user updates an existing flow
+     * @notice This can only be called by the fund address
      * @param _user User address
      * @param _newFlowRate New flow rate per second
      */
@@ -82,18 +95,34 @@ contract FluidFlowStorage {
      * @dev Called when a user's flow is deleted/stopped
      * @param _user User address
      */
-    function flowDeleted(address _user) external onlyFund {
+    function flowDeleted(address _user) external onlyFund returns (uint256 excessAmount) {
         UserFlow storage flow = userFlows[_user];
-        
-        // Calculate final streamed amount
-        uint256 timeElapsed = block.timestamp - flow.startTimestamp;
-        uint256 amountStreamed = uint256(int256(flow.flowRate)) * timeElapsed;
-        
-        // Update with final amount
-        flow.totalStreamedAmount += amountStreamed;
-        flow.flowRate = 0;
+        uint256 timeElapsed;
+
+        if (isFundClosed) {
+            timeElapsed = fundClosedTime - flow.startTimestamp;
+            uint256 amountUsed = uint256(int256(flow.flowRate)) * timeElapsed;
+            flow.totalStreamedAmount += amountUsed;
+            flow.flowRate = 0;
+
+            uint256 totalAmount = (block.timestamp - flow.startTimestamp) * uint256(int256(flow.flowRate));
+            
+            excessAmount = totalAmount - amountUsed;
+            
+        } else {
+            timeElapsed = block.timestamp - flow.startTimestamp;
+            excessAmount = 0;
+
+            uint256 amountStreamed = uint256(int256(flow.flowRate)) * timeElapsed;
+            
+            flow.totalStreamedAmount += amountStreamed;
+            flow.flowRate = 0;
+        }
+
+        return excessAmount;
+
     }
-    
+
     /**
      * @dev Get the total amount streamed by a user
      * @param _user User address
@@ -123,5 +152,22 @@ contract FluidFlowStorage {
     function setFundClosedTime(uint256 _time) external onlyFund {
         require(fundClosedTime == 0, "Fund close time already set");
         fundClosedTime = _time;
+        isFundClosed = true;
+        emit FundClosed();
     }
+
+    function isUserStreamActive(address userAddress) external view returns (bool) {
+        return userFlows[userAddress].flowRate != 0;
+    }
+
+    function userWithdrawn(address userAddress) external onlyFund {
+        // check user withdrawn true so that we dont allow multiple withdrawals
+        userFlows[userAddress].userWithdrawn = true;
+    }  
+
+    function isUserWithdrawn(address userAddress) external view returns (bool) {
+        return userFlows[userAddress].userWithdrawn;
+    }   
+
+    event FundClosed();
 }

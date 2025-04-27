@@ -20,16 +20,32 @@ contract TradeExecutor is Ownable {
         address indexed trader
     );
 
+    /**
+     * @dev Initialize the contract with the Uniswap V3 router address
+     * @notice This can only be called once during deployment
+     * @param _uniswapV3Router Address of the Uniswap V3 router
+     */
     constructor(address _uniswapV3Router) {
         UNISWAP_V3_ROUTER = _uniswapV3Router; 
     }
 
+    /**
+     * @dev Updates the Uniswap V3 router address
+     * @notice Can only be called by the contract owner
+     * @param _uniswapV3Router New address of the Uniswap V3 router
+     */
     function setUniswapV3Router(address _uniswapV3Router) external onlyOwner {
         address oldRouter = UNISWAP_V3_ROUTER;
         UNISWAP_V3_ROUTER = _uniswapV3Router;
         emit UniswapV3RouterUpdated(oldRouter, _uniswapV3Router);
     }
 
+    /**
+     * @dev Sets the whitelist status for a token
+     * @notice Can only be called by the contract owner
+     * @param _token Address of the token to update
+     * @param _status New whitelist status for the token
+     */
     function setWhitelistedToken(address _token, bool _status) external onlyOwner {
         whitelistedTokens[_token] = _status;
         emit TokenWhitelistStatusUpdated(_token, _status);
@@ -39,6 +55,7 @@ contract TradeExecutor is Ownable {
 
     /**
      * @notice Executes a swap on UniswapV3.
+     * @dev This function executes a swap on UniswapV3 using the provided parameters.
      * @param tokenIn Address of the token being sold.
      * @param tokenOut Address of the token being bought.
      * @param amountIn Amount of tokenIn to swap.
