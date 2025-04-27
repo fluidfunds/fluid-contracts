@@ -8,6 +8,8 @@ import { ISuperToken } from "@superfluid-finance/ethereum-contracts/contracts/in
 import { ISuperfluid } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import { ISuperTokenFactory } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperTokenFactory.sol";
 import "./PureSuperToken.sol";
+import "./interfaces/IFluidFlowStorage.sol";
+import "./interfaces/IFluidFlowStorageFactory.sol";
 
 contract FluidFlowFactory is Ownable, ReentrancyGuard {
     // Events
@@ -20,28 +22,22 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
 
     ISuperToken public acceptedToken;
     address public tradeExec;
+    IFluidFlowStorageFactory public storageFactory;
 
 
-    constructor(ISuperfluid _host, address _tradeExec) {
-        // Deploy new PureSuperTokenProxy for the accepted token
-        PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
-        
-        // Get SuperToken factory from host
-        ISuperTokenFactory superTokenFactory = ISuperTokenFactory(_host.getSuperTokenFactory());
-        
-        // Initialize the token with initial supply
-        uint256 initialSupply = 1_000_000_000 * 1e18; // 1 billion tokens
-        tokenProxy.initialize(
-            superTokenFactory,
-            "Accepted Token",
-            "ATK",
-            msg.sender, // Owner receives initial supply
-            initialSupply
-        );
-        
-        acceptedToken = ISuperToken(address(tokenProxy));
+    /**
+     * @dev Initialize the contract with necessary components
+     * @notice This can only be called once during deployment
+     * @param _host SuperFluid host contract address
+     * @param _tradeExec Address of the trade executor contract
+     * @param _storageFactory Address of the storage factory contract
+     */
+    constructor(ISuperfluid _host, address _tradeExec, IFluidFlowStorageFactory _storageFactory) {
+                        
         tradeExec = _tradeExec;
-
+        
+        // Set the storage factory
+        storageFactory = _storageFactory;
     }
 
 
@@ -68,6 +64,12 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         SuperFluidFlow newFund = new SuperFluidFlow(
             ISuperfluid(acceptedToken.getHost())
         );
+        
+        // Get address of new fund
+        address fundAddress = address(newFund);
+        
+        // Create storage for this fund using the factory
+        address storageAddress = storageFactory.createStorage(fundAddress, block.timestamp + fundDuration);
 
         newFund.initialize(
             acceptedToken,
@@ -77,20 +79,22 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
             address(this), // factory address
             fundTokenName,
             fundTokenSymbol,
-            tradeExec
+            tradeExec,
+            IFluidFlowStorage(storageAddress)
         );
-
-        address fundAddress = address(newFund);
 
         emit FundCreated(fundAddress, msg.sender, name, profitSharingPercentage, subscriptionDuration, fundDuration);
         return fundAddress;
     }
 
+    /**
+     * @dev Allows the owner to withdraw any ERC20 token from a fund in case of emergency
+     * @notice This is a safety function that can only be called by the owner
+     * @param fundAddr Address of the SuperFluidFlow fund to withdraw from
+     * @param token Address of the ERC20 token to withdraw
+     */
     function withdrawEmergency(SuperFluidFlow fundAddr, IERC20 token) public onlyOwner {
         fundAddr.withdrawEmergency(token);
         token.transfer(msg.sender, token.balanceOf(address(this)));
     }
-
-
 }
-

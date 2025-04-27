@@ -11,7 +11,6 @@ contract DeployFluidFlowFactory is Script {
 
     function run() external {
         vm.startBroadcast();
-        new FluidFlowFactory(host, TRADE_EXECUTOR);
-        vm.stopBroadcast();
+        vm.stopBroadcast(); 
     }
 }
