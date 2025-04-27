@@ -10,7 +10,7 @@ import {ISuperfluid, ISuperToken} from "@superfluid-finance/ethereum-contracts/c
 contract FluidFlowStorage {
     
     struct UserFlow {
-        uint256 startTimestamp;             // When the flow was created
+        uint256 startTimestamp;            // When the flow was created
         int96 flowRate;                   // Flow rate per second
         uint256 totalStreamedAmount;     // When the user updates the flowrate, we are storing the total streamed value here and chnaging the flowrate
         address userAddress;            // User's address

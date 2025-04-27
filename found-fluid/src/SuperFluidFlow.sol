@@ -66,7 +66,6 @@ contract SuperFluidFlow is CFASuperAppBase {
     }
 
 
-    // 
 
 
     // --------------------
@@ -177,17 +176,15 @@ contract SuperFluidFlow is CFASuperAppBase {
         int96 senderFlowRate = acceptedToken.getFlowRate(sender, address(this));
         
         if (block.timestamp > subscriptionEndTime) {
-            // send back the tokens if subscription deadline has passed
             newCtx = acceptedToken.createFlowWithCtx(sender, senderFlowRate, ctx);
             return newCtx;
         }
 
         newCtx = ctx;
 
-        
-        // Start fund token stream to the sender
         newCtx = fundToken.createFlowWithCtx(sender, senderFlowRate, ctx);
-        // No flow event emitted per your request
+
+        fundStorage.flowCreated(sender, senderFlowRate, acceptedToken);
 
         return newCtx;
     }
@@ -213,8 +210,10 @@ contract SuperFluidFlow is CFASuperAppBase {
 
         int96 currentFlowRate = superToken.getFlowRate(sender, address(this));
         
+        fundStorage.flowUpdated(sender, currentFlowRate, acceptedToken);
+
         // Update fund token stream to the sender
-        newCtx = fundToken.updateFlowWithCtx(sender, currentFlowRate, ctx);
+        newCtx = fundToken.updateFlowWithCtx(sender, currentFlowRate);
         // No flow event emitted per your request
         return newCtx;
 
@@ -235,14 +234,8 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 lastUpdated,
         bytes calldata ctx
     ) internal override returns (bytes memory newCtx) {
-        uint256 timeElapsed;
-        if (isFundActive) {
-            timeElapsed = fundClosedTimestamp - lastUpdated;
-        } else {
-            timeElapsed = block.timestamp - lastUpdated;
-        }
 
-        totalStreamed += uint256(uint96(previousFlowRate)) * timeElapsed;
+        fundStorage.flowDeleted(sender);
 
         // Delete fund token stream to the sender
         newCtx = fundToken.deleteFlowWithCtx(address(this), sender, ctx);
