@@ -24,6 +24,7 @@ contract SuperFluidFlow is CFASuperAppBase {
     // error TradingPeriodEnded();
     error FundStillActive();
     error UserStreamActive();
+    error FluidFlowFactory();
  
     address public owner;
     ISuperToken public acceptedToken;
@@ -33,6 +34,8 @@ contract SuperFluidFlow is CFASuperAppBase {
 
     uint256 public totalStreamed;
     uint256 public totalFundTokensUsed;
+
+    uint256 public totalUsdcBalanceFundClosed;
 
     bool public isFundActive;
 
@@ -130,7 +133,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         address _tradeExec,
         IFluidFlowStorage _fundStorage
     ) external {
-        if (msg.sender != owner) revert OnlyOwner();
+        if (msg.sender != _factory) revert FluidFlowFactory();
         if (_fundDuration <= _subscriptionDuration) revert FundDurationTooShort();
         
         acceptedToken = _acceptedToken;
@@ -152,13 +155,12 @@ contract SuperFluidFlow is CFASuperAppBase {
         // Get SuperToken factory from host
         ISuperTokenFactory superTokenFactory = ISuperTokenFactory(host.getSuperTokenFactory());
         
-        // Initialize the fund token with zero initial supply (minted as people deposit)
         tokenProxy.initialize(
             superTokenFactory,
             _fundTokenName,
             _fundTokenSymbol,
             address(this), // Fund contract owns the tokens initially
-            0 // No initial supply
+            1_000_000_000 * 1e18 // 1 billion tokens
         );
         
         fundToken = ISuperToken(address(tokenProxy));
@@ -321,7 +323,7 @@ contract SuperFluidFlow is CFASuperAppBase {
      */
     function closeFund() public {
         if (block.timestamp < fundEndTime) {
-            revert OnlyFundManager();
+            if (msg.sender != fundManager) revert OnlyFundManager();
         }
         IERC20 underlayingAcceptedToken = IERC20(acceptedToken.getUnderlyingToken());
         uint256 balance = underlayingAcceptedToken.balanceOf(address(this));
@@ -342,6 +344,8 @@ contract SuperFluidFlow is CFASuperAppBase {
                 // Transfer manager's share
                 acceptedToken.transfer(fundManager, managerShare);
             }
+
+            totalUsdcBalanceFundClosed = acceptedToken.balanceOf(address(this));
 
             isFundActive = false;
 
@@ -369,7 +373,7 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 userTotalStreamed = fundStorage.getTotalStreamed(msg.sender);
 
         // Calculate user's proportional share of the total assets
-        uint256 userShare = (totalFundTokensUsed * userTotalStreamed * 1000) / (userTotalStreamed * 1000);
+        uint256 userShare = (userTotalStreamed * totalUsdcBalanceFundClosed *1000) / (totalFundTokensUsed * 1000);
 
         // Transfer the proportional share of accepted tokens to the user
         acceptedToken.transfer(msg.sender, userShare);

@@ -33,23 +33,7 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
      * @param _storageFactory Address of the storage factory contract
      */
     constructor(ISuperfluid _host, address _tradeExec, IFluidFlowStorageFactory _storageFactory) {
-        // Deploy new PureSuperTokenProxy for the accepted token
-        PureSuperTokenProxy tokenProxy = new PureSuperTokenProxy();
-        
-        // Get SuperToken factory from host
-        ISuperTokenFactory superTokenFactory = ISuperTokenFactory(_host.getSuperTokenFactory());
-        
-        // Initialize the token with initial supply
-        uint256 initialSupply = 1_000_000_000 * 1e18; // 1 billion tokens
-        tokenProxy.initialize(
-            superTokenFactory,
-            "Accepted Token",
-            "ATK",
-            msg.sender, // Owner receives initial supply
-            initialSupply
-        );
-        
-        acceptedToken = ISuperToken(address(tokenProxy));
+                        
         tradeExec = _tradeExec;
         
         // Set the storage factory

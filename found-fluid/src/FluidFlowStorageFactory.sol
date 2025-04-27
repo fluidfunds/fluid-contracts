@@ -13,6 +13,12 @@ contract FluidFlowStorageFactory is Ownable, ReentrancyGuard {
     // Events
     event StorageCreated(address indexed storageAddress, address indexed fundAddress);
     
+    // Custom errors
+    error FluidFlowFactory();
+    error AlreadyInitialized();
+    error InvalidFundAddress();
+    error StorageAlreadyExists();
+    
     // Array to keep track of all storage contracts
     address[] public allStorageContracts;
     
@@ -27,7 +33,7 @@ contract FluidFlowStorageFactory is Ownable, ReentrancyGuard {
      * @param _fluidFlowFactory Address of the fluid flow factory
      */
     function initFluidFlowFactory(address _fluidFlowFactory) external onlyOwner {
-        require(fluidFlowFactory == address(0), "Already initialized");
+        if (fluidFlowFactory != address(0)) revert AlreadyInitialized();
         fluidFlowFactory = _fluidFlowFactory;
     }
     
@@ -38,9 +44,9 @@ contract FluidFlowStorageFactory is Ownable, ReentrancyGuard {
      * @return The address of the created storage contract
      */
     function createStorage(address fundAddress, uint256 _fundEndTime) external nonReentrant returns (address) {
-        require(msg.sender == fluidFlowFactory, "Only FluidFlowFactory can call");
-        require(fundAddress != address(0), "Invalid fund address");
-        require(fundToStorage[fundAddress] == address(0), "Storage already exists for this fund");
+        if (msg.sender != fluidFlowFactory) revert FluidFlowFactory();
+        if (fundAddress == address(0)) revert InvalidFundAddress();
+        if (fundToStorage[fundAddress] != address(0)) revert StorageAlreadyExists();
         
         // Create new storage contract
         FluidFlowStorage newStorage = new FluidFlowStorage();

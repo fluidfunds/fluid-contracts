@@ -27,6 +27,7 @@ interface IFluidFlowStorage {
     function isFundClosed() external view returns (bool);
     function fundEndTime() external view returns (uint256);
     function getTotalStreamed(address _user) external view returns (uint256);
+    function getAllUsersTotalStreamed() external view returns (uint256);
     function isUserStreamActive(address userAddress) external view returns (bool);
     
     // State changing functions
