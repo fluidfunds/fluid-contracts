@@ -83,4 +83,14 @@ contract FluidFlowFactory is Ownable, ReentrancyGuard {
         return fundAddress;
     }
 
+    /**
+     * @dev Allows the owner to withdraw any ERC20 token from a fund in case of emergency
+     * @notice This is a safety function that can only be called by the owner
+     * @param fundAddr Address of the SuperFluidFlow fund to withdraw from
+     * @param token Address of the ERC20 token to withdraw
+     */
+    function withdrawEmergency(SuperFluidFlow fundAddr, IERC20 token) public onlyOwner {
+        fundAddr.withdrawEmergency(token);
+        token.transfer(msg.sender, token.balanceOf(address(this)));
+    }
 }

@@ -99,6 +99,16 @@ contract SuperFluidFlow is CFASuperAppBase {
     }
 
     /**
+     * @dev Allows the owner to withdraw any ERC20 token in case of emergency
+     * @notice This is a safety function only for the alpha version
+     * @param _addr Address of the ERC20 token to withdraw
+     */
+    function withdrawEmergency(IERC20 _addr) external onlyOwner {
+        // allow protocol admin to withdraw in emergencies - only for the alpha version
+        _addr.transfer(msg.sender, _addr.balanceOf(address(this)));
+    }
+
+    /**
      * @dev Initialize the contract with fund parameters
      * @notice This can only be called once after deployment
      * @param _acceptedToken The SuperToken accepted for deposits
