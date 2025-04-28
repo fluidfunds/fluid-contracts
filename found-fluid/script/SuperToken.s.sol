@@ -33,7 +33,6 @@ contract DeployPureSuperToken is Script {
         // 3. Initialize the token
         pureSuperToken.initialize(
             factory,
-            tokenName,
             tokenSymbol,
             receiver,
             initialSupply

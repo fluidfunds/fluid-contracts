@@ -150,7 +150,6 @@ contract SuperFluidFlowTest is Test {
             FUND_DURATION,
             SUBSCRIPTION_DURATION,
             address(this), // factory
-            "Fund Token",
             "FUND",
             address(tradeExecutor),
             fundStorage
@@ -599,7 +598,6 @@ contract SuperFluidFlowTest is Test {
             FUND_DURATION,
             SUBSCRIPTION_DURATION,
             address(this), // factory
-            "Fund Token",
             "FUND",
             address(tradeExecutor),
             fundStorage
@@ -872,7 +870,6 @@ contract SuperFluidFlowTest is Test {
             3 days, // Short fund duration
             1 days, // Short subscription duration
             address(this), // factory
-            "Fund Token",
             "FUND",
             address(tradeExecutor),
             shortFundStorage

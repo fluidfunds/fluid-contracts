@@ -20,7 +20,6 @@ contract PureSuperTokenProxy is CustomSuperTokenBase, UUPSProxy {
     // This shall be invoked exactly once after deployment, needed for the token contract to become operational.
     function initialize(
         ISuperTokenFactory factory,
-        string memory name,
         string memory symbol,
         address receiver,
         uint256 initialSupply
@@ -31,7 +30,7 @@ contract PureSuperTokenProxy is CustomSuperTokenBase, UUPSProxy {
 
         // This initializes the token storage and sets the `initialized` flag of OpenZeppelin Initializable.
         // This makes sure that it will revert if invoked more than once.
-        ISuperToken(address(this)).initialize(IERC20(address(0)), 18, name, symbol);
+        ISuperToken(address(this)).initialize(IERC20(address(0)), 18, "Fluid", symbol);
 
         // This mints the specified initial supply to the specified receiver.
         ISuperToken(address(this)).selfMint(receiver, initialSupply, "");

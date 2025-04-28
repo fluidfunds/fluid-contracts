@@ -82,7 +82,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 _fundDuration,
         uint256 _subscriptionDuration,
         address _factory,
-        string _fundTokenName,
         string _fundTokenSymbol);
 
     event UserWithdrawn(address indexed user, uint256 fundTokensRedeemed, uint256 amountReceived);
@@ -100,16 +99,6 @@ contract SuperFluidFlow is CFASuperAppBase {
     }
 
     /**
-     * @dev Allows the owner to withdraw any ERC20 token in case of emergency
-     * @notice This is a safety function only for the alpha version
-     * @param _addr Address of the ERC20 token to withdraw
-     */
-    function withdrawEmergency(IERC20 _addr) external onlyOwner {
-        // allow protocol admin to withdraw in emergencies - only for the alpha version
-        _addr.transfer(msg.sender, _addr.balanceOf(address(this)));
-    }
-
-    /**
      * @dev Initialize the contract with fund parameters
      * @notice This can only be called once after deployment
      * @param _acceptedToken The SuperToken accepted for deposits
@@ -117,7 +106,6 @@ contract SuperFluidFlow is CFASuperAppBase {
      * @param _fundDuration Duration of the fund in seconds
      * @param _subscriptionDuration Duration of the subscription period in seconds
      * @param _factory Address of the factory that created this fund
-     * @param _fundTokenName Name of the fund token
      * @param _fundTokenSymbol Symbol of the fund token
      * @param _tradeExec Address of the trade executor
      * @param _fundStorage Address of the fund storage contract
@@ -128,7 +116,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         uint256 _fundDuration,
         uint256 _subscriptionDuration,
         address _factory,
-        string memory _fundTokenName,
         string memory _fundTokenSymbol,
         address _tradeExec,
         IFluidFlowStorage _fundStorage
@@ -157,7 +144,6 @@ contract SuperFluidFlow is CFASuperAppBase {
         
         tokenProxy.initialize(
             superTokenFactory,
-            _fundTokenName,
             _fundTokenSymbol,
             address(this), // Fund contract owns the tokens initially
             1_000_000_000 * 1e18 // 1 billion tokens
@@ -171,7 +157,6 @@ contract SuperFluidFlow is CFASuperAppBase {
             _fundDuration,
             _subscriptionDuration,
             _factory,
-            _fundTokenName,
             _fundTokenSymbol
         );
     }
