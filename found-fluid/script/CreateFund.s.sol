@@ -9,7 +9,7 @@ import {console} from "forge-std/console.sol";
 contract CreateFund is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address factoryAddress = vm.envAddress("FACTORY_ADDRESS");
+        address factoryAddress = address(0xFbFC0D00a14D2629C395d2e52C5cb6d12C3C41Ea); //vm.envAddress("FACTORY_ADDRESS");
         ISuperToken acceptedToken = ISuperToken(vm.envAddress("ACCEPTED_TOKEN"));
         
         // Fund parameters can be configured through environment variables
@@ -30,7 +30,7 @@ contract CreateFund is Script {
         address fundAddress = FluidFlowFactory(factoryAddress).createFund(
             fundName,
             managerFee,
-            block.timestamp + subscriptionPeriod,
+            subscriptionPeriod,
             fundDuration,
             acceptedToken
         );
