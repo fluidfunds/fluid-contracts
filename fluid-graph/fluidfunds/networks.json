@@ -3,6 +3,9 @@
     "FluidFlowFactory": {
       "address": "0xFbFC0D00a14D2629C395d2e52C5cb6d12C3C41Ea",
       "startBlock": 8213126
+    },
+    "SuperFluidFlow": {
+      "address": "0x39Dc978417F4a20937d6Cf28a566c75a0FD60D61"
     }
   }
 }

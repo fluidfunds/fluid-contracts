@@ -19,3 +19,64 @@ type OwnershipTransferred @entity(immutable: true) {
   blockTimestamp: BigInt!
   transactionHash: Bytes!
 }
+type FundClosed @entity(immutable: true) {
+  id: Bytes!
+
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type FundFlow @entity(immutable: true) {
+  id: Bytes!
+  _acceptedToken: Bytes! # address
+  _fundManager: Bytes! # address
+  _fundDuration: BigInt! # uint256
+  _subscriptionDuration: BigInt! # uint256
+  _factory: Bytes! # address
+  _fundTokenSymbol: String! # string
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type PositionClosed @entity(immutable: true) {
+  id: Bytes!
+  positionId: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TradeExecuted @entity(immutable: true) {
+  id: Bytes!
+  tokenIn: Bytes! # address
+  tokenOut: Bytes! # address
+  amountIn: BigInt! # uint256
+  amountOut: BigInt! # uint256
+  timestamp: BigInt! # uint256
+  isOpen: Boolean! # bool
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UserLiquidated @entity(immutable: true) {
+  id: Bytes!
+  user: Bytes! # address
+  tokenBalance: BigInt! # uint256
+  amountTaken: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UserWithdrawn @entity(immutable: true) {
+  id: Bytes!
+  user: Bytes! # address
+  fundTokensRedeemed: BigInt! # uint256
+  amountReceived: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
