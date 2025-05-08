@@ -1,11 +1,8 @@
 {
   "sepolia": {
     "FluidFlowFactory": {
-      "address": "0x5C5c0dC48B671b0e9Bc7CD1DcBE3f59976505901",
-      "startBlock": 7767051
-    },
-    "TradeExecutor": {
-      "address": "0xD63c3ba1130b584549d82c87C33dF1a1c285b41c"
+      "address": "0xFbFC0D00a14D2629C395d2e52C5cb6d12C3C41Ea",
+      "startBlock": 8213126
     }
   }
 }

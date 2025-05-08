@@ -1,12 +1,12 @@
 [
   {
     "inputs": [
+      { "internalType": "address", "name": "_tradeExec", "type": "address" },
       {
-        "internalType": "contract ISuperfluid",
-        "name": "_host",
+        "internalType": "contract IFluidFlowStorageFactory",
+        "name": "_storageFactory",
         "type": "address"
-      },
-      { "internalType": "address", "name": "_tradeExec", "type": "address" }
+      }
     ],
     "stateMutability": "nonpayable",
     "type": "constructor"
@@ -95,7 +95,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "subscriptionEndTime",
+        "name": "subscriptionDuration",
         "type": "uint256"
       },
       { "internalType": "uint256", "name": "fundDuration", "type": "uint256" },
@@ -126,6 +126,19 @@
   },
   {
     "inputs": [],
+    "name": "storageFactory",
+    "outputs": [
+      {
+        "internalType": "contract IFluidFlowStorageFactory",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "tradeExec",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
@@ -136,6 +149,20 @@
       { "internalType": "address", "name": "newOwner", "type": "address" }
     ],
     "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract SuperFluidFlow",
+        "name": "fundAddr",
+        "type": "address"
+      },
+      { "internalType": "contract IERC20", "name": "token", "type": "address" }
+    ],
+    "name": "withdrawEmergency",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
