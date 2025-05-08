@@ -6,11 +6,11 @@ import {
   beforeAll,
   afterAll
 } from "matchstick-as/assembly/index"
-import { Address } from "@graphprotocol/graph-ts"
+import { Address, BigInt } from "@graphprotocol/graph-ts"
 import { OwnershipTransferred } from "../generated/schema"
-import { OwnershipTransferred as OwnershipTransferredEvent } from "../generated/FluidFlowStorageFactory/FluidFlowStorageFactory"
-import { handleOwnershipTransferred } from "../src/fluid-flow-storage-factory"
-import { createOwnershipTransferredEvent } from "./fluid-flow-storage-factory-utils"
+import { OwnershipTransferred as OwnershipTransferredEvent } from "../generated/TradeExecutor/TradeExecutor"
+import { handleOwnershipTransferred } from "../src/trade-executor"
+import { createOwnershipTransferredEvent } from "./trade-executor-utils"
 
 // Tests structure (matchstick-as >=0.5.0)
 // https://thegraph.com/docs/en/developer/matchstick/#tests-structure-0-5-0

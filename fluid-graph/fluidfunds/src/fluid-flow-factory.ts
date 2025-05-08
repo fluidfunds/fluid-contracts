@@ -3,6 +3,8 @@ import {
   OwnershipTransferred as OwnershipTransferredEvent
 } from "../generated/FluidFlowFactory/FluidFlowFactory"
 import { FundCreated, OwnershipTransferred } from "../generated/schema"
+import { DataSourceContext } from "@graphprotocol/graph-ts"
+import { SuperFluidFlow } from "../generated/templates"
 
 export function handleFundCreated(event: FundCreatedEvent): void {
   let entity = new FundCreated(
@@ -20,6 +22,15 @@ export function handleFundCreated(event: FundCreatedEvent): void {
   entity.transactionHash = event.transaction.hash
 
   entity.save()
+  
+  // Create a new SuperFluidFlow data source instance for this fund
+  let context = new DataSourceContext()
+  context.setString('fundAddress', event.params.fundAddress.toHexString())
+  context.setString('manager', event.params.manager.toHexString())
+  context.setString('name', event.params.name)
+  
+  // Create a new instance of the SuperFluidFlow template with the fund's address
+  SuperFluidFlow.createWithContext(event.params.fundAddress, context)
 }
 
 export function handleOwnershipTransferred(

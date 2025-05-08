@@ -21,6 +21,8 @@ dataSources:
       abis:
         - name: FluidFlowFactory
           file: ./abis/FluidFlowFactory.json
+        - name: SuperFluidFlow
+          file: ./abis/SuperFluidFlow.json
       eventHandlers:
         - event: FundCreated(indexed address,indexed address,string,uint256,uint256,uint256)
           handler: handleFundCreated
@@ -28,12 +30,40 @@ dataSources:
           handler: handleOwnershipTransferred
       file: ./src/fluid-flow-factory.ts
   - kind: ethereum
-    name: SuperFluidFlow
+    name: TradeExecutor
     network: sepolia
     source:
-      address: "0x39Dc978417F4a20937d6Cf28a566c75a0FD60D61"
+      address: "0x687F6B828Ad7c449630704a75332f0407e4F5AAa"
+      abi: TradeExecutor
+      startBlock: 8211231
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - TradeExecutorOwnershipTransferred
+        - SwapExecuted
+        - TokenWhitelistStatusUpdated
+        - UniswapV3RouterUpdated
+      abis:
+        - name: TradeExecutor
+          file: ./abis/TradeExecutor.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+        - event: SwapExecuted(indexed address,indexed address,uint256,uint256,indexed address)
+          handler: handleSwapExecuted
+        - event: TokenWhitelistStatusUpdated(indexed address,bool)
+          handler: handleTokenWhitelistStatusUpdated
+        - event: UniswapV3RouterUpdated(indexed address,indexed address)
+          handler: handleUniswapV3RouterUpdated
+      file: ./src/trade-executor.ts
+templates:
+  - name: SuperFluidFlow
+    kind: ethereum
+    network: sepolia
+    source:
       abi: SuperFluidFlow
-      startBlock: 8213138
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9

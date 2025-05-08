@@ -6,6 +6,9 @@
     },
     "SuperFluidFlow": {
       "address": "0x39Dc978417F4a20937d6Cf28a566c75a0FD60D61"
+    },
+    "TradeExecutor": {
+      "address": "0x687F6B828Ad7c449630704a75332f0407e4F5AAa"
     }
   }
 }
